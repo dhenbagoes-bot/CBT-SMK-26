@@ -3,9 +3,12 @@ import { ImagePlus, Save } from 'lucide-react';
 import { Button, Card, Field, PageHeader, SelectInput, TextInput } from '../components/ui';
 import { savePengaturan, uploadLogo } from '../services/api';
 import type { Pengaturan as PengaturanTipe } from '../types';
-import type { PageProps } from './PageProps';
+import { KonfigurasiSection, type KonfigurasiProps } from './Konfigurasi';
 
-export default function Pengaturan({ pengaturan, toast, refreshData }: PageProps) {
+// Halaman ini khusus admin (dijaga App.tsx). Sejak v1.2.0, konfigurasi backend
+// (dulu menu sendiri) tinggal di sini — guru & siswa tidak melihatnya dan
+// langsung memakai aplikasi tanpa mengatur apa pun.
+export default function Pengaturan({ pengaturan, toast, refreshData, ...konfigurasi }: KonfigurasiProps) {
   const [form, setForm] = useState<PengaturanTipe>(pengaturan);
   const [loading, setLoading] = useState(false);
   const [unggahLoading, setUnggahLoading] = useState(false);
@@ -216,6 +219,15 @@ export default function Pengaturan({ pengaturan, toast, refreshData }: PageProps
       <Button onClick={simpan} loading={loading} className="w-full">
         <Save className="h-4 w-4" /> Simpan Pengaturan
       </Button>
+
+      <div className="mt-8">
+        <h2 className="mb-1 text-base font-bold text-slate-900 dark:text-slate-100">Konfigurasi Backend</h2>
+        <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+          Koneksi ke backend Google Apps Script — hanya admin yang melihat bagian ini. Guru dan siswa
+          tidak perlu mengatur apa pun, aplikasi langsung tersambung otomatis.
+        </p>
+        <KonfigurasiSection pengaturan={pengaturan} toast={toast} refreshData={refreshData} {...konfigurasi} />
+      </div>
     </div>
   );
 }

@@ -5,15 +5,20 @@ import { getApiUrl, initDatabase, ping, setApiUrl } from '../services/api';
 import type { PageProps } from './PageProps';
 import type { SekolahEntry } from '../types';
 
-interface Props extends PageProps {
+export interface KonfigurasiProps extends PageProps {
   sekolah: SekolahEntry | null;
   daftarSekolah: SekolahEntry[];
   onGantiSekolah: (s: SekolahEntry) => void;
   onApiUrlChange: (url: string) => Promise<void>;
 }
 
-// Selalu bisa dibuka walau getAllData() gagal — halaman pemulihan.
-export default function Konfigurasi({ toast, sekolah, daftarSekolah, onGantiSekolah, onApiUrlChange }: Props) {
+/**
+ * Isi konfigurasi backend (pilih sekolah, URL manual, tes & inisialisasi).
+ * Dipakai di dua tempat: sebagai bagian di dalam halaman Pengaturan (admin saja,
+ * sejak v1.2.0) dan sebagai halaman pemulihan saat backend belum terhubung sama
+ * sekali (setup awal — tidak ada menu yang mengarah ke sini).
+ */
+export function KonfigurasiSection({ toast, sekolah, daftarSekolah, onGantiSekolah, onApiUrlChange }: KonfigurasiProps) {
   const [urlManual, setUrlManual] = useState(getApiUrl());
   const [ujiLoading, setUjiLoading] = useState(false);
   const [hasilUji, setHasilUji] = useState('');
@@ -62,9 +67,7 @@ export default function Konfigurasi({ toast, sekolah, daftarSekolah, onGantiSeko
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <PageHeader judul="Konfigurasi" subjudul="Pilih sekolah & hubungkan ke backend Google Apps Script." />
-
+    <div>
       <Card className="mb-4">
         <h2 className="mb-3 font-bold text-slate-900 dark:text-slate-100">Sekolah Aktif</h2>
         <div className="space-y-2">
@@ -143,6 +146,18 @@ export default function Konfigurasi({ toast, sekolah, daftarSekolah, onGantiSeko
           onBatal={() => setKonfirmInit(false)}
         />
       )}
+    </div>
+  );
+}
+
+// Halaman pemulihan setup awal: hanya tampil saat backend belum terhubung sama
+// sekali (tidak ada menu yang mengarah ke sini sejak v1.2.0). Selalu bisa dibuka
+// walau getAllData() gagal — kalau tidak, pengguna terjebak di layar error.
+export default function Konfigurasi(props: KonfigurasiProps) {
+  return (
+    <div className="mx-auto max-w-2xl">
+      <PageHeader judul="Konfigurasi" subjudul="Pilih sekolah & hubungkan ke backend Google Apps Script." />
+      <KonfigurasiSection {...props} />
     </div>
   );
 }

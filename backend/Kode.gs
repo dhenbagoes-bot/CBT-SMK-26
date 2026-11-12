@@ -895,15 +895,17 @@ function initializeAllSheets(ss) {
     }
   }
 
-  // Seed jenjang
-  seedJenjang(ss, 'JJG-MTS', 'MTs/SMP');
-  seedJenjang(ss, 'JJG-SMA', 'MA/SMA/SMK');
+  // Seed jenjang: SMK, SMA, MA (v1.2.0 — sebelumnya MTs/SMP & MA/SMA/SMK).
+  seedJenjang(ss, 'JJG-SMK', 'SMK');
+  seedJenjang(ss, 'JJG-SMA', 'SMA');
+  seedJenjang(ss, 'JJG-MA', 'MA');
 
-  // Seed 6 kelas MTs (7A, 7B, 8A, 8B, 9A, 9B). Mapel TIDAK di-seed
+  // Seed 6 kelas awal (7A, 7B, 8A, 8B, 9A, 9B) di bawah jenjang SMK — admin
+  // bebas mengubah/menghapusnya di Kelola Data. Mapel TIDAK di-seed
   // (admin mengisi manual lewat Kelola Data / impor Excel).
   var kelasSeed = ['7A', '7B', '8A', '8B', '9A', '9B'];
   for (var kk = 0; kk < kelasSeed.length; kk++) {
-    seedKelas(ss, 'KLS-' + kelasSeed[kk], 'JJG-MTS', kelasSeed[kk]);
+    seedKelas(ss, 'KLS-' + kelasSeed[kk], 'JJG-SMK', kelasSeed[kk]);
   }
 
   // Seed 2 akun bawaan (hanya jika username belum ada)

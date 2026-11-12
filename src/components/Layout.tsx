@@ -3,7 +3,6 @@ import {
   BarChart3,
   BookOpen,
   ClipboardList,
-  Database,
   FileText,
   Home,
   LineChart,
@@ -71,7 +70,8 @@ export const SEMUA_NAV: NavItem[] = [
   { key: 'laporan', label: 'Laporan', icon: <FileText className="h-5 w-5" />, peran: ['admin', 'guru'] },
   { key: 'kelola-data', label: 'Kelola Data', icon: <Users className="h-5 w-5" />, peran: ['admin'] },
   { key: 'pengaturan', label: 'Pengaturan', icon: <Settings className="h-5 w-5" />, peran: ['admin'] },
-  { key: 'konfigurasi', label: 'Konfigurasi', icon: <Database className="h-5 w-5" /> },
+  // Sejak v1.2.0 tidak ada lagi menu Konfigurasi: isinya pindah ke dalam
+  // Pengaturan (admin saja). Guru & siswa langsung memakai aplikasi.
 ];
 
 /** Item yang tampil sesuai user. */
@@ -88,7 +88,7 @@ function utamaUntuk(user: UserSesi | null): PageKey[] {
   if (user?.peran === 'siswa') return ['dashboard', 'ujian', 'analisis-saya', 'hasil'];
   if (user?.peran === 'guru') return ['dashboard', 'bank-soal', 'paket', 'monitor'];
   if (user?.peran === 'admin') return ['dashboard', 'bank-soal', 'paket', 'hasil'];
-  return ['dashboard', 'konfigurasi'];
+  return ['dashboard'];
 }
 
 export function Layout({
@@ -328,8 +328,8 @@ export function Layout({
           <div className="space-y-2">
             {daftarSekolah.length === 0 && (
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Belum ada sekolah terdaftar. Tambahkan di <code>public/schools.json</code> atau atur URL backend
-                manual di menu Konfigurasi.
+                Belum ada sekolah terdaftar. Tambahkan di <code>public/schools.json</code> atau hubungi admin
+                sekolah.
               </p>
             )}
             {daftarSekolah.map((s) => (

@@ -1276,8 +1276,8 @@ export async function parseXlsxSiswa(buffer: ArrayBuffer): Promise<{ baris: Bari
 export function unduhTemplateXlsxSiswa(): void {
   const header = ['Nama', 'NIS', 'Kelas', 'Jenjang', 'Username', 'Password', 'NoHP'];
   const data = [
-    ['Ahmad Fauzi', '12345', '9A', 'MTs/SMP', '', '', '081234567890'],
-    ['Siti Aminah', '12346', '9A', 'MTs/SMP', '', '', ''],
+    ['Ahmad Fauzi', '12345', '9A', 'SMK', '', '', '081234567890'],
+    ['Siti Aminah', '12346', '9A', 'SMK', '', '', ''],
   ];
   const caraPakai = [
     ['CARA PAKAI TEMPLATE IMPOR SISWA'],

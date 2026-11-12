@@ -133,8 +133,8 @@ Status hasil vs KKM (default 75, dari Pengaturan):
   `ambangPeringatan:'3'`, `wajibFullscreen:'1'`, `izinkanUlangSetelahBatal:'0'`,
   `kkm:'75'`, `durasiStandar:'60'`, `jedaGelombang:'3'`,
   `waAktif:'false'`, `waEndpoint:''`, `waApiKey:''`, `waTemplateProgres:'...'`
-- Jenjang: `MTs/SMP`, `MA/SMA/SMK`
-- Kelas (6, jenjang `JJG-MTS`): `7A`, `7B`, `8A`, `8B`, `9A`, `9B`
+- Jenjang: `SMK`, `SMA`, `MA`
+- Kelas (6, jenjang `JJG-SMK`): `7A`, `7B`, `8A`, `8B`, `9A`, `9B`
   (ID `KLS-7A` … `KLS-9B`)
 - Mapel: **TIDAK di-seed** (0 mapel — admin mengisi manual lewat form
   Kelola Data atau impor Excel; jangan hardcode daftar mapel di kode).

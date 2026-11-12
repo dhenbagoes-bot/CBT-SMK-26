@@ -1,4 +1,4 @@
-# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.1.0
+# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.2.0
 
 Aplikasi ujian digital (CBT) khusus untuk SMK Negeri 1 Juwangi.
 Siswa mengerjakan ujian langsung dari browser (laptop & HP), guru mengelola bank soal &
@@ -16,6 +16,15 @@ manual** (kelas baru dibuat otomatis); menu **Notifikasi WA dihapus** (kemampuan
 backend tetap ada tetapi tidak dipakai dari menu). Selain itu tidak ada perubahan
 perilaku — semua yang sudah berjalan dipertahankan. Backend tidak perlu di-deploy
 ulang untuk v1.1.0 (hanya 1 string default di `Kode.gs` yang berubah).
+
+**Yang baru di v1.2.0:** menu **Konfigurasi dihapus dari navigasi** — isinya pindah
+ke dalam **Pengaturan → Konfigurasi Backend** dan hanya bisa dibuka admin; guru
+(mengunggah soal) dan siswa (ujian) tidak lagi melihat urusan koneksi backend dan
+langsung memakai aplikasi. Layar konfigurasi tetap muncul otomatis saat backend
+belum terhubung sama sekali (setup awal). Jenjang seed kini **SMK, SMA, MA**
+(sebelumnya MTs/SMP & MA/SMA/SMK). Selain itu tidak ada perubahan perilaku.
+Backend tidak perlu di-deploy ulang untuk v1.2.0 (hanya seed `Kode.gs` yang
+berubah; database live tidak ikut berubah — ubah jenjang lewat Kelola Data).
 
 **Stack:** React 19 + Vite + TypeScript + Tailwind 4 (frontend, deploy di Vercel) •
 Google Apps Script + Google Sheets + Google Drive (backend, gratis, milik sekolah sendiri).
@@ -75,11 +84,14 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
 
 ## B. Hubungkan Frontend
 
-1. Buka aplikasi → menu **Konfigurasi**.
+1. Buka aplikasi → bila backend belum terhubung, layar Konfigurasi tampil otomatis.
+   (Bila sudah terhubung, konfigurasi ada di **Pengaturan → Konfigurasi Backend**,
+   khusus admin.)
 2. Tempel URL `/exec` ke kolom *URL Backend Manual* → **Simpan URL**.
 3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.0.0 ...`.
 4. Klik **Inisialisasi Database** — membuat 12 sheet + akun bawaan
-   `admin`/`admin123` dan `guru`/`guru123`, 6 kelas seed (7A, 7B, 8A, 8B, 9A, 9B),
+   `admin`/`admin123` dan `guru`/`guru123`, jenjang SMK/SMA/MA,
+   6 kelas seed (7A, 7B, 8A, 8B, 9A, 9B),
    dan Pengaturan default (nama sekolah `SMK Negeri 1 Juwangi`, KKM 75,
    durasi standar 60 menit, jeda gelombang 3 menit). Mapel **tidak** di-seed —
    admin mengisinya manual (lihat langkah D.3). **WAJIB ganti kata sandi
@@ -126,12 +138,13 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
    Klik **Simpan Pengaturan**.
 2. **Ganti password bawaan** (admin & guru) di Kelola Data → Pengguna → ✏️
    (kosongkan password bila tidak ingin mengubah).
-3. **Kelola Data → Jenjang/Mapel/Kelas**: sesuaikan (bawaan: MTs/SMP & MA/SMA/SMK
-   + 6 kelas 7A–9B). **Daftar mapel diisi manual** (tambah satu per satu lewat
-   form, edit, hapus) atau impor Excel — jangan hardcode; tidak ada mapel seed.
-   Untuk SMK Negeri 1 Juwangi: isi **17–20 mapel** sesuai kurikulum. Jenjang
-   dan kelas bawaan bisa diubah/dihapus di Kelola Data sesuai kebutuhan SMK
-   (mis. jenjang `SMK`, kelas `X AKL 1`, `XI MM 2`, dst.).
+3. **Kelola Data → Jenjang/Mapel/Kelas**: sesuaikan (bawaan: jenjang SMK, SMA, MA
+   + 6 kelas 7A–9B di bawah SMK). **Daftar mapel diisi manual** (tambah satu per
+   satu lewat form, edit, hapus) atau impor Excel — jangan hardcode; tidak ada
+   mapel seed.
+   Untuk SMK Negeri 1 Juwangi: isi **17–20 mapel** sesuai kurikulum. Kelas
+   bawaan bisa diubah/dihapus di Kelola Data sesuai kebutuhan
+   (mis. kelas `X AKL 1`, `XI MM 2`, dst.).
 4. **Kelola Data → Impor Siswa**: unduh template `.xlsx`, isi (Nama, NIS, Kelas wajib;
    password awal = NIS bila dikosongkan; **No. WA Orang Tua** opsional, data kontak
    orang tua), unggah → pratinjau → Impor.
@@ -211,8 +224,9 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
   (bukan `token` — itu token sesi login).
 - Impor file (.txt/.docx/.xlsx) **tanpa library tambahan** — ZIP & XML ditulis/dibaca
   manual di `src/utils/imporSoal.ts` (pola yang sama dipakai untuk unduh Excel rekap).
-- Halaman **Konfigurasi** & **Masuk** selalu bisa dibuka walau backend gagal dimuat,
-  agar tidak terjebak di layar error.
+- Layar **Konfigurasi** (setup awal) & **Masuk** selalu bisa dibuka walau backend
+  gagal dimuat, agar tidak terjebak di layar error. Sejak v1.2.0 tidak ada lagi
+  menu Konfigurasi — isinya ada di Pengaturan → Konfigurasi Backend (admin saja).
 - Test: `node test/smoke-backend.mjs` (verifikasi kontrak backend — dijalankan
   terhadap mock di Node), `node test/impor-soal.test.ts` dan (setelah kompilasi util)
   `node test/frontend-logic.test.mjs`. Verifikasi build: `npx tsc --noEmit` dan

@@ -240,11 +240,11 @@ eq(sheetRows('LogAktivitas')[0], ['ID', 'Waktu', 'Username', 'SesiID', 'Jenis', 
     ['SMK Negeri 1 Juwangi', '3', '1', '0', '', '75', '60', '3', 'false', '', ''], 'seed 15 kunci pengaturan sesuai kontrak');
   ok((get('waTemplateProgres') || '').includes('{nama}') && (get('waTemplateProgres') || '').includes('{mapelLemah}'), 'seed template WA berisi placeholder');
   const jenjang = sheetRows('Jenjang').slice(1).map((x) => x[1]);
-  eq(jenjang, ['MTs/SMP', 'MA/SMA/SMK'], 'seed 2 jenjang');
+  eq(jenjang, ['SMK', 'SMA', 'MA'], 'seed 3 jenjang');
   eq(sheetRows('Mapel').length, 1, 'mapel TIDAK di-seed (0 mapel, admin isi manual)');
   const kelasSeed = sheetRows('Kelas').slice(1).map((x) => x[2]);
-  eq(kelasSeed, ['7A', '7B', '8A', '8B', '9A', '9B'], 'seed 6 kelas MTs');
-  ok(sheetRows('Kelas').slice(1).every((x) => x[1] === 'JJG-MTS'), 'semua kelas seed di jenjang JJG-MTS');
+  eq(kelasSeed, ['7A', '7B', '8A', '8B', '9A', '9B'], 'seed 6 kelas awal');
+  ok(sheetRows('Kelas').slice(1).every((x) => x[1] === 'JJG-SMK'), 'semua kelas seed di jenjang JJG-SMK');
   eq(sheetRows('Kelas').slice(1).map((x) => x[0]), ['KLS-7A', 'KLS-7B', 'KLS-8A', 'KLS-8B', 'KLS-9A', 'KLS-9B'], 'ID kelas seed deterministik');
   const urows = sheetRows('Pengguna');
   const admin = urows.find((x) => x[2] === 'admin');
@@ -257,7 +257,7 @@ eq(sheetRows('LogAktivitas')[0], ['ID', 'Waktu', 'Username', 'SesiID', 'Jenis', 
 }
 post('initDatabase'); // idempotent
 eq(sheetRows('Pengguna').filter((x) => x[2] === 'admin').length, 1, 'akun admin tidak duplikat');
-eq(sheetRows('Jenjang').length, 3, 'jenjang tidak duplikat (header+2)');
+eq(sheetRows('Jenjang').length, 4, 'jenjang tidak duplikat (header+3)');
 eq(sheetRows('Mapel').length, 1, 'mapel tetap kosong setelah init ulang');
 eq(sheetRows('Kelas').length, 7, 'kelas tidak duplikat (header+6)');
 eq(sheetRows('Pengaturan').filter((x) => x[0] === 'namaSekolah').length, 1, 'kunci pengaturan tidak duplikat');
@@ -338,14 +338,14 @@ for (const [aksi, params] of aksiSemuaPeran) {
   const idx = findGridRow('Pengguna', 10, TOKEN_GURU);
   sheets.get('Pengguna').getRange(idx + 1, 11).setValue(Date.now() - 1000);
 }
-r = post('saveKelas', { token: TOKEN_GURU, nama: 'X', jenjangId: 'JJG-MTS' });
+r = post('saveKelas', { token: TOKEN_GURU, nama: 'X', jenjangId: 'JJG-SMK' });
 ok(!r.success && r.message === PESAN_SESI, 'token kedaluwarsa ditolak');
 r = post('login', { username: 'guru', password: 'guru123' });
 const TOKEN_GURU2 = r.data.token;
 // logout
 r = post('logout', { token: TOKEN_GURU2 });
 ok(r.success, 'logout sukses');
-r = post('saveKelas', { token: TOKEN_GURU2, nama: 'X', jenjangId: 'JJG-MTS' });
+r = post('saveKelas', { token: TOKEN_GURU2, nama: 'X', jenjangId: 'JJG-SMK' });
 ok(!r.success && r.message === PESAN_SESI, 'token pasca-logout tidak valid');
 r = post('login', { username: 'guru', password: 'guru123' });
 const TOKEN_GURU3 = r.data.token;
@@ -359,18 +359,18 @@ ok(sheetRows('Kelas').some((x) => x[0] === KELAS_7A && x[2] === '7A'), 'kelas se
 r = post('saveKelas', { token: TOKEN_ADMIN, jenjangId: 'JJG-SMA', nama: '10A' });
 ok(r.success && !!r.data.id, 'saveKelas 10A (admin, SMA)');
 const KELAS_10A = r.data.id;
-r = post('saveKelas', { token: TOKEN_ADMIN, jenjangId: 'JJG-MTS', nama: '7A' });
+r = post('saveKelas', { token: TOKEN_ADMIN, jenjangId: 'JJG-SMK', nama: '7A' });
 ok(!r.success && /sudah ada/i.test(r.message), 'saveKelas duplikat nama dalam jenjang ditolak');
-r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Andi', username: 'andi', peran: 'siswa', nis: '1001', jenjangId: 'JJG-MTS', kelasId: KELAS_7A });
+r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Andi', username: 'andi', peran: 'siswa', nis: '1001', jenjangId: 'JJG-SMK', kelasId: KELAS_7A });
 ok(r.success, 'savePengguna Andi (siswa, password default=NIS)');
-r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Budi', username: 'budi', peran: 'siswa', nis: '1002', jenjangId: 'JJG-MTS', kelasId: KELAS_7A });
+r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Budi', username: 'budi', peran: 'siswa', nis: '1002', jenjangId: 'JJG-SMK', kelasId: KELAS_7A });
 ok(r.success, 'savePengguna Budi');
-r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Cici', username: 'cici', peran: 'siswa', nis: '1003', jenjangId: 'JJG-MTS', kelasId: KELAS_8A });
+r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Cici', username: 'cici', peran: 'siswa', nis: '1003', jenjangId: 'JJG-SMK', kelasId: KELAS_8A });
 ok(r.success, 'savePengguna Cici');
 r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Dedi', username: 'dedi', peran: 'siswa', nis: '2001', jenjangId: 'JJG-SMA', kelasId: KELAS_10A });
 ok(r.success, 'savePengguna Dedi (SMA)');
 r = post('login', { username: 'andi', password: '1001' });
-ok(r.success && r.data.peran === 'siswa' && r.data.nis === '1001' && r.data.jenjangId === 'JJG-MTS' && r.data.kelasId === KELAS_7A, 'login siswa: password default = NIS; nis/jenjangId/kelasId benar');
+ok(r.success && r.data.peran === 'siswa' && r.data.nis === '1001' && r.data.jenjangId === 'JJG-SMK' && r.data.kelasId === KELAS_7A, 'login siswa: password default = NIS; nis/jenjangId/kelasId benar');
 const TOKEN_ANDI = r.data.token;
 r = post('login', { username: 'budi', password: '1002' });
 let TOKEN_BUDI = r.data.token;
@@ -389,9 +389,9 @@ ok(!r.success && r.message === 'Aksi ini hanya boleh dilakukan oleh admin.', 'gu
 r = post('savePengaturan', { token: TOKEN_GURU3, pengaturan: {} });
 ok(!r.success && /admin/i.test(r.message), 'guru panggil savePengaturan -> ditolak');
 // Guru memanggil aksi admin -> ditolak (master khusus admin per kontrak)
-r = post('saveKelas', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', nama: '9Z' });
+r = post('saveKelas', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', nama: '9Z' });
 ok(!r.success && /admin/i.test(r.message), 'guru TIDAK boleh saveKelas (master khusus admin)');
-r = post('saveKelas', { token: TOKEN_ADMIN, jenjangId: 'JJG-MTS', nama: '9Z' });
+r = post('saveKelas', { token: TOKEN_ADMIN, jenjangId: 'JJG-SMK', nama: '9Z' });
 ok(r.success, 'admin boleh saveKelas');
 const KELAS_9Z = r.data.id;
 
@@ -400,17 +400,17 @@ r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Guru Baru', username: 'gur
 ok(!r.success && /password wajib diisi/i.test(r.message), 'tambah guru tanpa password -> ditolak');
 r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Admin Baru', username: 'adminbaru', peran: 'admin' });
 ok(!r.success && /password wajib diisi/i.test(r.message), 'tambah admin tanpa password -> ditolak');
-r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Eka', username: 'eka', peran: 'siswa', nis: '1005', jenjangId: 'JJG-MTS', kelasId: KELAS_7A });
+r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Eka', username: 'eka', peran: 'siswa', nis: '1005', jenjangId: 'JJG-SMK', kelasId: KELAS_7A });
 ok(r.success, 'tambah siswa tanpa password -> OK (default NIS)');
 r = post('login', { username: 'eka', password: '1005' });
 ok(r.success, 'siswa Eka bisa login dengan NIS sebagai password');
 r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'X', username: 'ANDI', peran: 'guru', password: 'x12345' });
 ok(!r.success && /sudah dipakai/i.test(r.message), 'username duplikat case-insensitive ditolak');
-r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'X', username: 'x1', peran: 'siswa', jenjangId: 'JJG-MTS', kelasId: KELAS_7A });
+r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'X', username: 'x1', peran: 'siswa', jenjangId: 'JJG-SMK', kelasId: KELAS_7A });
 ok(!r.success && /nis/i.test(r.message), 'siswa tanpa NIS ditolak');
-r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'X', username: 'x2', peran: 'siswa', nis: '9999', jenjangId: 'JJG-MTS' });
+r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'X', username: 'x2', peran: 'siswa', nis: '9999', jenjangId: 'JJG-SMK' });
 ok(!r.success && /kelas/i.test(r.message), 'siswa tanpa kelasId ditolak');
-r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'X', username: 'x3', peran: 'siswa', nis: '9998', jenjangId: 'JJG-MTS', kelasId: 'kelas-palsu' });
+r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'X', username: 'x3', peran: 'siswa', nis: '9998', jenjangId: 'JJG-SMK', kelasId: 'kelas-palsu' });
 ok(!r.success && /kelas/i.test(r.message), 'siswa kelasId tak dikenal ditolak');
 r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'X', username: 'x4', peran: 'kepala', password: 'x12345' });
 ok(!r.success && /peran/i.test(r.message), 'peran invalid ditolak');
@@ -420,7 +420,7 @@ ok(!r.success && /nama/i.test(r.message), 'nama kosong ditolak');
 {
   const idx = findGridRow('Pengguna', 3, 'budi');
   const hashLama = sheetRows('Pengguna')[idx][3];
-  r = post('savePengguna', { token: TOKEN_ADMIN, id: sheetRows('Pengguna')[idx][0], nama: 'Budi Santoso', username: 'budi', peran: 'siswa', nis: '1002', jenjangId: 'JJG-MTS', kelasId: KELAS_7A });
+  r = post('savePengguna', { token: TOKEN_ADMIN, id: sheetRows('Pengguna')[idx][0], nama: 'Budi Santoso', username: 'budi', peran: 'siswa', nis: '1002', jenjangId: 'JJG-SMK', kelasId: KELAS_7A });
   ok(r.success, 'update pengguna tanpa password sukses');
   const hashBaru = sheetRows('Pengguna')[findGridRow('Pengguna', 3, 'budi')][3];
   eq(hashBaru, hashLama, 'hash password tidak berubah saat update tanpa password');
@@ -430,7 +430,7 @@ ok(!r.success && /nama/i.test(r.message), 'nama kosong ditolak');
 // Update username duplikat -> ditolak
 {
   const idx = findGridRow('Pengguna', 3, 'cici');
-  r = post('savePengguna', { token: TOKEN_ADMIN, id: sheetRows('Pengguna')[idx][0], nama: 'Cici', username: 'andi', peran: 'siswa', nis: '1003', jenjangId: 'JJG-MTS', kelasId: KELAS_8A });
+  r = post('savePengguna', { token: TOKEN_ADMIN, id: sheetRows('Pengguna')[idx][0], nama: 'Cici', username: 'andi', peran: 'siswa', nis: '1003', jenjangId: 'JJG-SMK', kelasId: KELAS_8A });
   ok(!r.success && /sudah dipakai/i.test(r.message), 'update ke username milik orang lain ditolak');
 }
 // deletePengguna: diri sendiri & admin terakhir
@@ -490,7 +490,7 @@ r = post('importSiswa', {
     { nama: 'Andi Wijaya', nis: '1001', kelas: '7a', password: 'andi999' }, // 5: duplikat NIS -> update
     { nama: 'Irfan', nis: '9006', kelas: '7A' },                  // 6: import (username=NIS, pass=NIS)
     { nama: 'Joko', nis: '9007', kelas: '7A', username: 'joko custom', password: 'jk123' }, // 7: import custom
-    { nama: 'Kiki', nis: '9008', kelas: '8A', jenjang: 'MTs/SMP' }, // 8: import dgn jenjang
+    { nama: 'Kiki', nis: '9008', kelas: '8A', jenjang: 'SMK' }, // 8: import dgn jenjang
   ],
 });
 ok(r.success, 'importSiswa sukses');
@@ -505,9 +505,9 @@ eq(r.data.errors.map((e) => e.baris), [1, 2, 3, 4], 'error di baris 1-4');
   const irfan = urows.find((x) => x[6] === '9006');
   eq(irfan[2], '9006', 'username default = NIS');
   eq(irfan[8], KELAS_7A, 'kelasId tersimpan dari nama kelas');
-  eq(irfan[7], 'JJG-MTS', 'jenjangId tersimpan dari kelas');
+  eq(irfan[7], 'JJG-SMK', 'jenjangId tersimpan dari kelas');
   const kiki = urows.find((x) => x[6] === '9008');
-  eq([kiki[7], kiki[8]], ['JJG-MTS', KELAS_8A], 'jenjang param dipakai untuk cocokkan kelas');
+  eq([kiki[7], kiki[8]], ['JJG-SMK', KELAS_8A], 'jenjang param dipakai untuk cocokkan kelas');
 }
 // v1.1.4: impor batch besar (150 baris) + duplikat NIS di DALAM batch yang sama
 {
@@ -536,7 +536,7 @@ ok(r.success && !!r.data.id, 'saveJenjang baru sukses');
 const JJG_BARU = r.data.id;
 r = post('saveJenjang', { token: TOKEN_ADMIN, id: JJG_BARU, nama: 'RA' });
 ok(r.success, 'update jenjang sukses');
-r = post('deleteJenjang', { token: TOKEN_ADMIN, id: 'JJG-MTS' });
+r = post('deleteJenjang', { token: TOKEN_ADMIN, id: 'JJG-SMK' });
 ok(!r.success && /dipakai/i.test(r.message), 'deleteJenjang dipakai mapel/kelas/bank/paket -> ditolak');
 r = post('deleteJenjang', { token: TOKEN_ADMIN, id: JJG_BARU });
 ok(r.success, 'deleteJenjang tak dipakai -> sukses');
@@ -544,7 +544,7 @@ r = post('saveMapel', { token: TOKEN_ADMIN, nama: 'Fisika' });
 ok(!r.success && /jenjang/i.test(r.message), 'saveMapel tanpa jenjangId ditolak');
 r = post('saveMapel', { token: TOKEN_ADMIN, jenjangId: 'palsu', nama: 'Fisika' });
 ok(!r.success && /tidak ditemukan/i.test(r.message), 'saveMapel jenjangId palsu ditolak');
-r = post('saveMapel', { token: TOKEN_ADMIN, jenjangId: 'JJG-MTS', nama: 'Fisika' });
+r = post('saveMapel', { token: TOKEN_ADMIN, jenjangId: 'JJG-SMK', nama: 'Fisika' });
 ok(r.success, 'saveMapel Fisika sukses');
 const MAPEL_FIS = r.data.id;
 r = post('deleteMapel', { token: TOKEN_ADMIN, id: MAPEL_FIS });
@@ -559,14 +559,14 @@ ok(!r.success, 'deleteKelas id tak dikenal -> error');
 
 console.log('\n[9] saveSoal — validasi + CRUD');
 // Mapel TIDAK di-seed (v1.0.0) — dibuat manual via saveMapel
-r = post('saveMapel', { token: TOKEN_ADMIN, jenjangId: 'JJG-MTS', nama: 'Bahasa Indonesia' });
-ok(r.success && !!r.data.id, 'saveMapel Bahasa Indonesia (MTs) sukses');
+r = post('saveMapel', { token: TOKEN_ADMIN, jenjangId: 'JJG-SMK', nama: 'Bahasa Indonesia' });
+ok(r.success && !!r.data.id, 'saveMapel Bahasa Indonesia (SMK) sukses');
 const MAPEL_MTS_1 = r.data.id;
 r = post('saveMapel', { token: TOKEN_ADMIN, jenjangId: 'JJG-SMA', nama: 'Bahasa Indonesia' });
 ok(r.success && !!r.data.id, 'saveMapel Bahasa Indonesia (SMA) sukses');
 const MAPEL_SMA_1 = r.data.id;
 const SOAL_OK = {
-  jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1,
+  jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1,
   soal: 'Ibukota Indonesia adalah...',
   opsiA: 'Jakarta', opsiB: 'Bandung', opsiC: 'Surabaya', opsiD: 'Medan',
   kunci: 'A', bobot: 2, pembahasan: 'Jakarta adalah ibukota.',
@@ -604,10 +604,10 @@ r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMA', mapelId: MAPEL_
 const SOAL_SMA1 = r.data.id;
 
 console.log('\n[10] importSoal — valid campur invalid');
-r = post('importSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, items: [] });
+r = post('importSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, items: [] });
 ok(!r.success, 'importSoal items kosong ditolak');
 r = post('importSoal', {
-  token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1,
+  token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1,
   items: [
     { soal: 'Impor 1', opsiA: 'a', opsiB: 'b', opsiC: 'c', opsiD: 'd', kunci: 'A' },
     { soal: '', opsiA: 'a', opsiB: 'b', opsiC: 'c', opsiD: 'd', kunci: 'A' },       // invalid
@@ -621,7 +621,7 @@ eq(r.data.errors.map((e) => e.baris), [2, 3], 'error di baris 2 & 3');
 
 console.log('\n[11] importSoalDariForm — guard FormsApp + impor palsu');
 // (a) Tanpa FormsApp di konteks -> error ramah
-r = post('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'abc', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1 });
+r = post('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'abc', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
 ok(!r.success && r.message === 'Impor Google Form hanya bisa dijalankan di Apps Script.', 'guard FormsApp -> error ramah');
 // (b) Konteks kedua DENGAN FormsApp palsu (berbagi sheet yang sama)
 function makeChoice(v, c) { return { getValue: () => v, isCorrectAnswer: () => !!c }; }
@@ -662,7 +662,7 @@ function post2(action, extra = {}) {
   );
   return JSON.parse(out.getContent());
 }
-r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'https://docs.google.com/forms/d/form123/edit', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1 });
+r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'https://docs.google.com/forms/d/form123/edit', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
 ok(r.success, 'importSoalDariForm via URL sukses');
 eq(r.data.imported, 2, 'imported=2 (2 MC valid)');
 eq(r.data.dilewati.length, 5, 'dilewati=5 (tanpa kunci, kunci ganda, text, 6 opsi, 1 opsi)');
@@ -675,18 +675,18 @@ eq(r.data.dilewati.length, 5, 'dilewati=5 (tanpa kunci, kunci ganda, text, 6 ops
   ok(!!imp1 && !!imp2, '2 soal dari form tersimpan di BankSoal');
   eq([imp1[9], imp2[9]], ['A', 'D'], 'kunci dari isCorrectAnswer() benar');
   eq([imp1[10], imp2[10]], [1, 1], 'bobot default 1');
-  eq([imp1[1], imp1[2]], ['JJG-MTS', MAPEL_MTS_1], 'jenjangId/mapelId tersimpan');
+  eq([imp1[1], imp1[2]], ['JJG-SMK', MAPEL_MTS_1], 'jenjangId/mapelId tersimpan');
 }
-r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'form123', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1 });
+r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'form123', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
 ok(r.success && r.data.imported === 2, 'ID mentah (tanpa URL) juga bisa');
-r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'tidakada', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1 });
+r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'tidakada', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
 ok(!r.success && /tidak ditemukan atau tidak dapat diakses/i.test(r.message), 'form id tak dikenal -> error');
-r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: '', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1 });
+r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: '', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
 ok(!r.success && /wajib diisi/i.test(r.message), 'formIdOrUrl kosong ditolak');
 
 console.log('\n[12] savePaket — validasi lengkap + CRUD');
 const PAKET_BAIK = {
-  nama: 'Try Out 1', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1,
+  nama: 'Try Out 1', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1,
   kelasIds: [KELAS_7A], modeSoal: 'manual', soalIds: [SOAL1, SOAL2, SOAL3],
   durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2),
   acakSoal: 1, acakOpsi: 1, tampilSkor: 1, tampilPembahasan: 1, aktif: 1,
@@ -718,7 +718,7 @@ ok(!r.success && /jenjang/i.test(r.message), 'jenjangId palsu ditolak');
 r = post('savePaket', { token: TOKEN_GURU3, ...PAKET_BAIK });
 ok(r.success && !!r.data.id, 'savePaket manual valid sukses');
 const PAKET1 = r.data.id;
-r = post('savePaket', { token: TOKEN_GURU3, nama: 'Try Out Acak', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_8A], modeSoal: 'acak', jumlahAcak: 2, durasiMenit: 30, mulai: jamLalu(-1), selesai: jamLalu(2), tampilPembahasan: 0 });
+r = post('savePaket', { token: TOKEN_GURU3, nama: 'Try Out Acak', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_8A], modeSoal: 'acak', jumlahAcak: 2, durasiMenit: 30, mulai: jamLalu(-1), selesai: jamLalu(2), tampilPembahasan: 0 });
 ok(r.success, 'savePaket acak (kelas 8A, tampilPembahasan=0) sukses');
 const PAKET2 = r.data.id;
 r = post('savePaket', { token: TOKEN_GURU3, nama: 'Paket SMA', jenjangId: 'JJG-SMA', mapelId: MAPEL_SMA_1, modeSoal: 'manual', soalIds: [SOAL_SMA1], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2) });
@@ -758,7 +758,7 @@ ok(!r.success && /tidak aktif/i.test(r.message), 'paket nonaktif -> ditolak');
 r = post('mulaiSesi', { token: TOKEN_ANDI2, paketId: PAKET_EXP });
 ok(!r.success && /dibuka atau sudah ditutup/i.test(r.message), 'paket di luar jendela -> ditolak');
 r = post('mulaiSesi', { token: TOKEN_DEDI, paketId: PAKET1 });
-ok(!r.success && /jenjang/i.test(r.message), 'siswa SMA di paket MTs -> ditolak (jenjang)');
+ok(!r.success && /jenjang/i.test(r.message), 'siswa SMA di paket SMK -> ditolak (jenjang)');
 r = post('mulaiSesi', { token: TOKEN_CICI, paketId: PAKET1 });
 ok(!r.success && /kelas/i.test(r.message), 'siswa 8A di paket khusus 7A -> ditolak (kelas)');
 r = post('mulaiSesi', { token: TOKEN_ANDI2, paketId: PAKET1 });
@@ -948,7 +948,7 @@ eq([r.data.paket.id, r.data.paket.nama], [PAKET1, 'Try Out 1 Revisi'], 'info pak
   eq(byNama['Eka'].status, 'Belum mulai', 'Eka (tanpa sesi) -> Belum mulai');
   eq(byNama['Eka'].nilai, 0, 'Belum mulai -> nilai 0');
   ok(!byNama['Cici'], 'Cici (8A) tidak eligible untuk paket khusus 7A');
-  ok(!byNama['Dedi'], 'Dedi (SMA) tidak eligible untuk paket MTs');
+  ok(!byNama['Dedi'], 'Dedi (SMA) tidak eligible untuk paket SMK');
   ok(r.data.rows.every((x) => x.kelas === '7A' || x.nama === 'Andi Wijaya'), 'semua baris eligible');
 }
 r = post('rekapHasil', { token: TOKEN_GURU3, paketId: PAKET2 });
@@ -992,7 +992,7 @@ eq(r.data.length, 0, 'Cici tanpa hasil -> []');
 
 console.log('\n[20] monitorSesi — AKTIF dulu, lalu terbaru');
 // TOKEN_ANDI2 = token segar Andi (username kini '1001' setelah update impor)
-r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Maya', username: 'maya', peran: 'siswa', nis: '1004', jenjangId: 'JJG-MTS', kelasId: KELAS_8A });
+r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Maya', username: 'maya', peran: 'siswa', nis: '1004', jenjangId: 'JJG-SMK', kelasId: KELAS_8A });
 ok(r.success, 'savePengguna Maya (8A) untuk monitor');
 r = post('login', { username: 'maya', password: '1004' });
 ok(r.success, 'login Maya sukses');
@@ -1056,7 +1056,7 @@ ok(r.success, 'savePengaturan valid sukses');
     ['MTs CBT', '5', '0', '1'], 'nilai tersimpan (string di sheet)');
   eq(get('kunciAsing'), undefined, 'kunci tak dikenal diabaikan');
 }
-r = post('savePengaturan', { token: TOKEN_ADMIN, pengaturan: { ambangPeringatan: 3, wajibFullscreen: 1, izinkanUlangSetelahBatal: 0, namaSekolah: 'MTs Al Islam Ngleses' } });
+r = post('savePengaturan', { token: TOKEN_ADMIN, pengaturan: { ambangPeringatan: 3, wajibFullscreen: 1, izinkanUlangSetelahBatal: 0, namaSekolah: 'SMK Negeri 1 Juwangi' } });
 ok(r.success, 'kembalikan default');
 
 console.log('\n[23] uploadLogo & uploadGambarSoal — validasi + Drive');
@@ -1094,7 +1094,7 @@ ok(r.success && !!r.data.url && !!r.data.fileId, 'uploadGambarSoal (guru) sukses
   eq(f[1].startsWith('https://drive.google.com/thumbnail?id='), true, 'logoUrl tetap URL logo');
 }
 // gambar soal bisa dipasang ke soal
-r = post('saveSoal', { token: TOKEN_GURU3, id: SOAL2, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, soal: 'Soal 2 revisi', opsiA: 'A2', opsiB: 'B2', opsiC: 'C2', opsiD: 'D2', kunci: 'B', gambarUrl: 'https://drive.google.com/thumbnail?id=file_x&sz=w800' });
+r = post('saveSoal', { token: TOKEN_GURU3, id: SOAL2, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, soal: 'Soal 2 revisi', opsiA: 'A2', opsiB: 'B2', opsiC: 'C2', opsiD: 'D2', kunci: 'B', gambarUrl: 'https://drive.google.com/thumbnail?id=file_x&sz=w800' });
 ok(r.success, 'gambarUrl tersimpan di soal');
 
 console.log('\n[24] getAllData — filter per peran');
@@ -1127,7 +1127,7 @@ r = post('getAllData', { token: TOKEN_CICI });
   const p2 = r.data.paket.find((p) => p.id === PAKET2);
   eq(p2.jumlahSoal, 2, 'paket acak: jumlahSoal = jumlahAcak');
   ok(!('token' in p2), 'paket siswa: token TIDAK dikirim');
-  eq(r.data.pengaturan.namaSekolah, 'MTs Al Islam Ngleses', 'pengaturan namaSekolah seed');
+  eq(r.data.pengaturan.namaSekolah, 'SMK Negeri 1 Juwangi', 'pengaturan namaSekolah seed');
 }
 // --- guru ---
 r = post('getAllData', { token: TOKEN_GURU3 });
@@ -1141,7 +1141,7 @@ ok(r.data.bankSoal.length > 0 && r.data.bankSoal.every((s) => /^[A-E]$/.test(s.k
 // --- admin ---
 r = post('getAllData', { token: TOKEN_ADMIN });
 ok(r.data.pengguna.some((u) => u.peran === 'admin'), 'admin -> lihat semua pengguna termasuk admin');
-eq(r.data.jenjang.length, 2, 'jenjang 2');
+eq(r.data.jenjang.length, 3, 'jenjang 3');
 ok(r.data.mapel.length >= 2 && r.data.kelas.length >= 6, 'mapel (dibuat manual) & kelas (6 seed + tambahan) terbaca');
 {
   const json = JSON.stringify(r.data);
@@ -1172,7 +1172,7 @@ const SESI_AN = r.data.sesi.id;
 {
   const idx = findGridRow('Pengguna', 3, '1001'); // Andi (username hasil impor = NIS)
   const idAndi = sheetRows('Pengguna')[idx][0];
-  r = post('savePengguna', { token: TOKEN_ADMIN, id: idAndi, nama: 'Andi Wijaya', username: '1001', peran: 'siswa', nis: '1001', jenjangId: 'JJG-MTS', kelasId: KELAS_7A, noHP: '081234567890' });
+  r = post('savePengguna', { token: TOKEN_ADMIN, id: idAndi, nama: 'Andi Wijaya', username: '1001', peran: 'siswa', nis: '1001', jenjangId: 'JJG-SMK', kelasId: KELAS_7A, noHP: '081234567890' });
   ok(r.success, 'savePengguna update noHP sukses');
   eq(sheetRows('Pengguna')[findGridRow('Pengguna', 3, '1001')][12], '081234567890', 'noHP tersimpan di kolom 13');
 }
@@ -1320,49 +1320,49 @@ eq(r.data[0].username, '1001', 'urutan terbaru dulu');
 
 console.log('\n[27] 6 jenis soal — validasi, token statis, autosave, resume, skoring, nilaiEssay');
 // --- setup: siswa Fani (9A) + 6 soal (satu per jenis) + paket bertoken ---
-r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Fani', username: 'fani', peran: 'siswa', nis: '1009', jenjangId: 'JJG-MTS', kelasId: KELAS_9A });
+r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Fani', username: 'fani', peran: 'siswa', nis: '1009', jenjangId: 'JJG-SMK', kelasId: KELAS_9A });
 ok(r.success, 'savePengguna Fani (9A)');
 r = post('login', { username: 'fani', password: '1009' });
 ok(r.success, 'login Fani sukses');
 const TOKEN_FANI = r.data.token;
 const SOAL6 = {};
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'pg', soal: 'PG: 2+2 = ?', opsiA: '3', opsiB: '4', opsiC: '5', opsiD: '6', kunci: 'B', bobot: 2 });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'pg', soal: 'PG: 2+2 = ?', opsiA: '3', opsiB: '4', opsiC: '5', opsiD: '6', kunci: 'B', bobot: 2 });
 ok(r.success && !!r.data.id, 'saveSoal pg sukses');
 SOAL6.pg = r.data.id;
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'pgk', soal: 'PGK: bilangan prima?', opsi: ['2', '3', '4', '5'], kunci: ['A', 'B', 'D'], bobot: 3 });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'pgk', soal: 'PGK: bilangan prima?', opsi: ['2', '3', '4', '5'], kunci: ['A', 'B', 'D'], bobot: 3 });
 ok(r.success && !!r.data.id, 'saveSoal pgk (kunci array huruf) sukses');
 SOAL6.pgk = r.data.id;
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'bs', soal: 'BS: Matahari terbit dari timur.', kunci: 'Benar', bobot: 1 });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'bs', soal: 'BS: Matahari terbit dari timur.', kunci: 'Benar', bobot: 1 });
 ok(r.success && !!r.data.id, 'saveSoal bs sukses');
 SOAL6.bs = r.data.id;
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'jodoh', soal: 'Jodohkan ibukota dengan negaranya.', pasanganKiri: ['Ibukota Indonesia', 'Ibukota Jepang'], pasanganKanan: ['Tokyo', 'Jakarta'], kunci: [1, 0], bobot: 4 });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'jodoh', soal: 'Jodohkan ibukota dengan negaranya.', pasanganKiri: ['Ibukota Indonesia', 'Ibukota Jepang'], pasanganKanan: ['Tokyo', 'Jakarta'], kunci: [1, 0], bobot: 4 });
 ok(r.success && !!r.data.id, 'saveSoal jodoh sukses');
 SOAL6.jodoh = r.data.id;
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'isian', soal: 'Isian: Ibukota Indonesia?', kunci: 'Jakarta', bobot: 2 });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'isian', soal: 'Isian: Ibukota Indonesia?', kunci: 'Jakarta', bobot: 2 });
 ok(r.success && !!r.data.id, 'saveSoal isian sukses');
 SOAL6.isian = r.data.id;
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'essay', soal: 'Essay: Jelaskan pentingnya belajar.', bobot: 5 });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'essay', soal: 'Essay: Jelaskan pentingnya belajar.', bobot: 5 });
 ok(r.success && !!r.data.id, 'saveSoal essay sukses');
 SOAL6.essay = r.data.id;
 // --- validasi jenis baru ---
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'pgk', soal: 'x', opsi: ['A', 'B'], kunci: [] });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'pgk', soal: 'x', opsi: ['A', 'B'], kunci: [] });
 ok(!r.success && /kunci/i.test(r.message), 'pgk tanpa kunci ditolak');
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'pgk', soal: 'x', opsi: ['A', 'B'], kunci: ['A', 'B'] });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'pgk', soal: 'x', opsi: ['A', 'B'], kunci: ['A', 'B'] });
 ok(!r.success && /semua opsi/i.test(r.message), 'pgk kunci mencakup semua opsi ditolak');
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'bs', soal: 'x', kunci: 'Mungkin' });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'bs', soal: 'x', kunci: 'Mungkin' });
 ok(!r.success && /Benar.*Salah/i.test(r.message), 'bs kunci bukan Benar/Salah ditolak');
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'jodoh', soal: 'x', pasanganKiri: ['a', 'b'], pasanganKanan: ['x', 'y'], kunci: [0] });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'jodoh', soal: 'x', pasanganKiri: ['a', 'b'], pasanganKanan: ['x', 'y'], kunci: [0] });
 ok(!r.success && /sama dengan jumlah/i.test(r.message), 'jodoh kunci != jml kiri ditolak');
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'jodoh', soal: 'x', pasanganKiri: ['a', 'b'], pasanganKanan: ['x', 'y'], kunci: [0, 5] });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'jodoh', soal: 'x', pasanganKiri: ['a', 'b'], pasanganKanan: ['x', 'y'], kunci: [0, 5] });
 ok(!r.success && /jangkauan/i.test(r.message), 'jodoh kunci di luar jangkauan ditolak');
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'isian', soal: 'x', kunci: '' });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'isian', soal: 'x', kunci: '' });
 ok(!r.success && /kunci isian/i.test(r.message), 'isian tanpa kunci ditolak');
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'pilgan', soal: 'x', opsiA: 'a', opsiB: 'b', opsiC: 'c', opsiD: 'd', kunci: 'A' });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'pilgan', soal: 'x', opsiA: 'a', opsiB: 'b', opsiC: 'c', opsiD: 'd', kunci: 'A' });
 ok(!r.success && /Jenis soal/i.test(r.message), 'jenis tak dikenal ditolak');
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'pg', soal: 'x', opsiA: 'a', opsiB: 'b', opsiC: 'c', opsiD: 'd', kunci: 'A', tingkat: 'Sangat Sulit' });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'pg', soal: 'x', opsiA: 'a', opsiB: 'b', opsiC: 'c', opsiD: 'd', kunci: 'A', tingkat: 'Sangat Sulit' });
 ok(!r.success && /Tingkat/i.test(r.message), 'tingkat tak dikenal ditolak');
 // --- backward-compat: soal lama tanpa jenis -> 'pg'; tingkat & kelasId ---
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, soal: 'PG legacy tanpa jenis?', opsiA: 'a', opsiB: 'b', opsiC: 'c', opsiD: 'd', kunci: 'A', tingkat: 'Sulit', kelasId: KELAS_9A });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, soal: 'PG legacy tanpa jenis?', opsiA: 'a', opsiB: 'b', opsiC: 'c', opsiD: 'd', kunci: 'A', tingkat: 'Sulit', kelasId: KELAS_9A });
 ok(r.success, 'saveSoal tanpa jenis sukses (default pg)');
 const SOAL_LEGACY = r.data.id;
 {
@@ -1385,7 +1385,7 @@ r = post('getAllData', { token: TOKEN_GURU3 });
 }
 // --- importSoal batch dengan jenis campuran ---
 r = post('importSoal', {
-  token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1,
+  token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1,
   items: [
     { jenis: 'pgk', soal: 'Impor PGK', opsi: ['a', 'b', 'c'], kunci: ['A', 'C'], bobot: 2 },
     { jenis: 'isian', soal: 'Impor Isian', kunci: 'Jawaban', bobot: 1 },
@@ -1397,10 +1397,10 @@ eq([r.data.imported, r.data.errors.length], [2, 1], 'importSoal: imported=2, err
 eq(sheetRows('BankSoal').filter((x) => x[3] === 'Impor PGK' || x[3] === 'Impor Isian').length, 2, '2 soal impor tersimpan (batch setValues)');
 
 // --- paket bertoken (token STATIS) ---
-r = post('savePaket', { token: TOKEN_GURU3, nama: 'Ujian 6 Jenis', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_9A], modeSoal: 'manual', soalIds: [SOAL6.pg, SOAL6.pgk, SOAL6.bs, SOAL6.jodoh, SOAL6.isian, SOAL6.essay], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2), tokenUjian: 'TOKEN9', jedaGelombang: 5 });
+r = post('savePaket', { token: TOKEN_GURU3, nama: 'Ujian 6 Jenis', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_9A], modeSoal: 'manual', soalIds: [SOAL6.pg, SOAL6.pgk, SOAL6.bs, SOAL6.jodoh, SOAL6.isian, SOAL6.essay], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2), tokenUjian: 'TOKEN9', jedaGelombang: 5 });
 ok(r.success && !!r.data.id, 'savePaket bertoken sukses');
 const PAKET6 = r.data.id;
-r = post('savePaket', { token: TOKEN_GURU3, nama: 'Token Panjang', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_9A], modeSoal: 'manual', soalIds: [SOAL6.pg], durasiMenit: 60, mulai: jamLalu(30), selesai: jamLalu(32), tokenUjian: 'X'.repeat(21) });
+r = post('savePaket', { token: TOKEN_GURU3, nama: 'Token Panjang', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_9A], modeSoal: 'manual', soalIds: [SOAL6.pg], durasiMenit: 60, mulai: jamLalu(30), selesai: jamLalu(32), tokenUjian: 'X'.repeat(21) });
 ok(!r.success && /20 karakter/i.test(r.message), 'token ujian > 20 karakter ditolak');
 {
   const p6 = sheetRows('Paket').find((x) => x[0] === PAKET6);
@@ -1605,7 +1605,7 @@ ok(r.success, 'submit C (hanya pgk salah) sukses');
   eq([h.essayBelumDinilai, h.nilaiFinal, h.status], [0, true, 'Belum Tuntas'], 'essay tak dijawab bukan "menunggu"');
 }
 // --- saveSoal jodoh via kunciJodoh (format form frontend: kunci '' + peta) ---
-r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, jenis: 'jodoh', soal: 'Jodoh via peta', pasanganKiri: ['a', 'b'], pasanganKanan: ['x', 'y'], kunci: '', kunciJodoh: { 0: 1, 1: 0 }, bobot: 2 });
+r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, jenis: 'jodoh', soal: 'Jodoh via peta', pasanganKiri: ['a', 'b'], pasanganKanan: ['x', 'y'], kunci: '', kunciJodoh: { 0: 1, 1: 0 }, bobot: 2 });
 ok(r.success && !!r.data.id, 'saveSoal jodoh via kunciJodoh (peta) sukses');
 {
   const row = sheetRows('BankSoal').find((x) => x[0] === r.data.id);
@@ -1645,31 +1645,31 @@ r = post('getHasilSiswa', { token: TOKEN_FANI, paketId: PAKET6 });
 ok(r.success && r.data.every((h) => h.username === 'fani'), 'siswa tetap hanya melihat hasilnya sendiri');
 
 console.log('\n[28] anti-bentrok jadwal (savePaket)');
-r = post('savePaket', { token: TOKEN_GURU3, nama: 'Bentrok 7A', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_7A], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2) });
+r = post('savePaket', { token: TOKEN_GURU3, nama: 'Bentrok 7A', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_7A], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2) });
 ok(!r.success && /bentrok/i.test(r.message) && /Try Out 1 Revisi/.test(r.message), 'paket 7A jam sama -> ditolak (sebut nama paket bentrok)');
-r = post('savePaket', { token: TOKEN_GURU3, nama: 'Semua Kelas Bentrok', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, kelasIds: [], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2) });
+r = post('savePaket', { token: TOKEN_GURU3, nama: 'Semua Kelas Bentrok', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, kelasIds: [], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2) });
 ok(!r.success && /bentrok/i.test(r.message), 'paket semua-kelas jam sama -> ditolak (kelasIds kosong = semua kelas)');
-r = post('savePaket', { token: TOKEN_GURU3, nama: 'Besok 7A', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_7A], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(23), selesai: jamLalu(25) });
+r = post('savePaket', { token: TOKEN_GURU3, nama: 'Besok 7A', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_7A], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(23), selesai: jamLalu(25) });
 ok(r.success && !!r.data.id, 'paket 7A hari lain (besok) -> lolos');
 const PAKET_BESOK = r.data.id;
-r = post('savePaket', { token: TOKEN_GURU3, nama: 'Kelas 9B', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, kelasIds: ['KLS-9B'], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2) });
+r = post('savePaket', { token: TOKEN_GURU3, nama: 'Kelas 9B', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, kelasIds: ['KLS-9B'], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2) });
 ok(r.success && !!r.data.id, 'paket kelas lain jam sama -> lolos');
 const PAKET_9B = r.data.id;
-r = post('savePaket', { token: TOKEN_GURU3, id: PAKET_BESOK, nama: 'Besok 7A', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_7A], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2) });
+r = post('savePaket', { token: TOKEN_GURU3, id: PAKET_BESOK, nama: 'Besok 7A', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_7A], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2) });
 ok(!r.success && /bentrok/i.test(r.message), 'EDIT paket besok ke jam bentrok -> ditolak');
-r = post('savePaket', { token: TOKEN_GURU3, id: PAKET_BESOK, nama: 'Besok 7A', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_7A], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(26), selesai: jamLalu(28) });
+r = post('savePaket', { token: TOKEN_GURU3, id: PAKET_BESOK, nama: 'Besok 7A', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_7A], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(26), selesai: jamLalu(28) });
 ok(r.success, 'EDIT paket besok ke jam lain (hari sama, tak bersinggungan) -> lolos');
-r = post('savePaket', { token: TOKEN_GURU3, nama: 'Nonaktif Bentrok', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_7A], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2), aktif: 0 });
+r = post('savePaket', { token: TOKEN_GURU3, nama: 'Nonaktif Bentrok', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_7A], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2), aktif: 0 });
 ok(r.success && !!r.data.id, 'paket NONAKTIF jam bentrok -> lolos (hanya paket aktif dicek)');
 const PAKET_OFF2 = r.data.id;
 r = post('deletePaket', { token: TOKEN_GURU3, id: PAKET_OFF2 });
 ok(r.success, 'bersihkan paket nonaktif uji bentrok');
-r = post('savePaket', { token: TOKEN_GURU3, id: PAKET1, nama: 'Try Out 1 Revisi', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_7A], modeSoal: 'manual', soalIds: [SOAL1, SOAL2, SOAL3], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2), acakSoal: 1, acakOpsi: 1, tampilSkor: 1, tampilPembahasan: 1, aktif: 1 });
+r = post('savePaket', { token: TOKEN_GURU3, id: PAKET1, nama: 'Try Out 1 Revisi', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, kelasIds: [KELAS_7A], modeSoal: 'manual', soalIds: [SOAL1, SOAL2, SOAL3], durasiMenit: 60, mulai: jamLalu(-1), selesai: jamLalu(2), acakSoal: 1, acakOpsi: 1, tampilSkor: 1, tampilPembahasan: 1, aktif: 1 });
 ok(r.success, 'EDIT paket sendiri (abaikan diri sendiri) -> lolos');
 
 console.log('\n[29] durasiStandar & jedaGelombang (Pengaturan)');
 r = post('getAllData', { token: TOKEN_GURU3 });
-eq([r.data.pengaturan.namaSekolah, r.data.pengaturan.kkm, r.data.pengaturan.durasiStandar, r.data.pengaturan.jedaGelombang], ['MTs Al Islam Ngleses', 70, 60, 3], 'getAllData: namaSekolah + kkm 70 + durasiStandar 60 + jedaGelombang 3');
+eq([r.data.pengaturan.namaSekolah, r.data.pengaturan.kkm, r.data.pengaturan.durasiStandar, r.data.pengaturan.jedaGelombang], ['SMK Negeri 1 Juwangi', 70, 60, 3], 'getAllData: namaSekolah + kkm 70 + durasiStandar 60 + jedaGelombang 3');
 r = post('savePengaturan', { token: TOKEN_GURU3, pengaturan: { durasiStandar: 90 } });
 ok(!r.success && /admin/i.test(r.message), 'guru ditolak ubah durasiStandar');
 r = post('savePengaturan', { token: TOKEN_ADMIN, pengaturan: { durasiStandar: 0 } });
@@ -1687,7 +1687,7 @@ ok(r.success, 'jedaGelombang 5 tersimpan');
 r = post('getAllData', { token: TOKEN_GURU3 });
 eq([r.data.pengaturan.durasiStandar, r.data.pengaturan.jedaGelombang], [90, 5], 'durasiStandar & jedaGelombang terbaca setelah disimpan');
 // Backend TIDAK memaksa durasi ujian = durasi standar (paket boleh 45 menit)
-r = post('savePaket', { token: TOKEN_GURU3, nama: 'Durasi 45', jenjangId: 'JJG-MTS', mapelId: MAPEL_MTS_1, kelasIds: ['KLS-9B'], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 45, mulai: jamLalu(30), selesai: jamLalu(32) });
+r = post('savePaket', { token: TOKEN_GURU3, nama: 'Durasi 45', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, kelasIds: ['KLS-9B'], modeSoal: 'manual', soalIds: [SOAL1], durasiMenit: 45, mulai: jamLalu(30), selesai: jamLalu(32) });
 ok(r.success && !!r.data.id, 'savePaket durasi 45 saat standar 90 sukses');
 const PAKET_D45 = r.data.id;
 r = post('getAllData', { token: TOKEN_GURU3 });

@@ -218,7 +218,7 @@ const ITEM = {
 {
   const data: string[][] = [
     ['Nama', 'NIS', 'Kelas', 'Jenjang', 'Username', 'Password'],
-    ['Ahmad', '123', '9A', 'MTs/SMP', '', ''],
+    ['Ahmad', '123', '9A', 'SMK', '', ''],
     ['Siti', '124', '9A', '', 'siti', 'rahasia'],
     ['Budi', '123', '9B', '', '', ''], // NIS duplikat
     ['', '125', '9A', '', '', ''], // nama kosong

@@ -121,7 +121,7 @@ function jedaRetry(percobaan: number): number {
 export async function api<T>(action: string, params: object = {}): Promise<T> {
   const apiUrl = resolveUrl();
   if (!validUrl(apiUrl)) {
-    throw new Error('URL backend belum dikonfigurasi. Atur di menu Konfigurasi.');
+    throw new Error('URL backend belum dikonfigurasi. Hubungi admin sekolah.');
   }
   const maxPercobaan = AKSI_BOLEH_RETRY.has(action) ? 4 : 1;
   // Token sesi SELALU dari tokenMem (atau token eksplisit, mis. logout).

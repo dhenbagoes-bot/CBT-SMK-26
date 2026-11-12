@@ -196,7 +196,7 @@ export default function App() {
         setMemuat(false);
         setTerhubung(false);
         setPage('konfigurasi');
-        toast('Selamat datang! Hubungkan aplikasi ke backend dulu di menu Konfigurasi. 🏁', 'info');
+        toast('Selamat datang! Hubungkan aplikasi ke backend dulu. 🏁', 'info');
         return;
       }
       // Pulihkan sesi tersimpan (admin/guru "tetap masuk").
@@ -293,7 +293,11 @@ export default function App() {
   const butuhGuru: PageKey[] = ['bank-soal', 'paket', 'monitor', 'analisis-kelas', 'laporan'];
   const bolehGuru = !user || user.peran === 'guru' || user.peran === 'admin';
   const butuhLogin = (page === 'hasil' || page === 'ujian' || page === 'analisis-saya' || butuhGuru.includes(page) || page === 'kelola-data' || page === 'pengaturan') && !user;
-  const butuhAdmin = (page === 'kelola-data' || page === 'pengaturan') && user?.peran !== 'admin';
+  // Halaman 'konfigurasi' (layar pemulihan) juga hanya untuk admin bila data
+  // sudah termuat — guru/siswa tidak pernah diarahkan ke sana. Pengecualian
+  // setup awal (backend belum terhubung sama sekali) ditangani cabang render
+  // di bawah, di luar penjaga akses ini.
+  const butuhAdmin = (page === 'kelola-data' || page === 'pengaturan' || page === 'konfigurasi') && user?.peran !== 'admin';
   const butuhSiswa = page === 'ujian' && user && user.peran !== 'siswa';
   const butuhBukanSiswa = butuhGuru.includes(page) && user && !bolehGuru;
   const aksesDitolak = butuhLogin || butuhAdmin || butuhSiswa || butuhBukanSiswa;
@@ -344,7 +348,15 @@ export default function App() {
       case 'kelola-data':
         return <KelolaData {...props} />;
       case 'pengaturan':
-        return <Pengaturan {...props} />;
+        return (
+          <Pengaturan
+            {...props}
+            sekolah={sekolah}
+            daftarSekolah={daftarSekolah}
+            onGantiSekolah={gantiSekolah}
+            onApiUrlChange={gantiUrlManual}
+          />
+        );
       case 'konfigurasi':
         return (
           <Konfigurasi
@@ -402,10 +414,15 @@ export default function App() {
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{galat}</p>
         <div className="mt-5 flex justify-center gap-2">
           <Button onClick={() => muatData()}>Coba Lagi</Button>
-          <Button varian="sekunder" onClick={() => setPage('konfigurasi')}>
-            Konfigurasi
-          </Button>
+          {user?.peran === 'admin' && (
+            <Button varian="sekunder" onClick={() => setPage('konfigurasi')}>
+              Konfigurasi
+            </Button>
+          )}
         </div>
+        {user?.peran !== 'admin' && (
+          <p className="mt-3 text-xs text-slate-400">Jika masalah berlanjut, hubungi admin sekolah.</p>
+        )}
       </div>
     );
   } else {
