@@ -1,7 +1,7 @@
 # Kontrak API — Backend wwn-cbt-madrasah-80 (CBT Digital — SMK Negeri 1 Juwangi)
 
 Backend: Google Apps Script + Google Sheets + Google Drive.
-Versi: `1.2.1` (`APP_VERSION` di `backend/Kode.gs`).
+Versi: `1.2.3` (`APP_VERSION` di `backend/Kode.gs`).
 Fork dari wwn-cbt-atm-80 v1.1.4 — yang baru di v1.0.0: sheet `JawabanSiswa`,
 6 jenis soal, token ujian statis, autosave + resume, penilaian essay manual,
 anti-bentrok jadwal, `durasiStandar` & `jedaGelombang` di Pengaturan.
@@ -18,7 +18,7 @@ ke URL `/exec` Web App. Respons SELALU memakai envelope:
 `doGet` (GET biasa, tanpa parameter) hanya mengembalikan info service:
 
 ```json
-{ "success": true, "data": { "service": "wwn-cbt-madrasah-80", "version": "1.2.1" } }
+{ "success": true, "data": { "service": "wwn-cbt-madrasah-80", "version": "1.2.3" } }
 ```
 
 **Pengecualian beacon**: `batalkanSesi` juga dipanggil via
@@ -147,7 +147,7 @@ Status hasil vs KKM (default 75, dari Pengaturan):
 ## Daftar action
 
 ### `ping` (publik)
-→ `{ success:true, data:{ version:"1.2.1", waktu:"yyyy-MM-dd HH:mm:ss" } }`
+→ `{ success:true, data:{ version:"1.2.3", waktu:"yyyy-MM-dd HH:mm:ss" } }`
 
 ### `login` (publik) `{ username, password }`
 Username case-insensitive; tolak jika `Aktif != 1`.
@@ -256,12 +256,17 @@ Pengguna/Paket).
 → `{ success:true, data:{ imported, duplikat, errors:[{ baris, pesan }] } }`
 
 `importSoalDariForm` 🔒 guru `{ formIdOrUrl, jenjangId, mapelId }`
-- Ambil ID form dari URL (`/d/<ID>/`) atau ID mentah.
-- **Jika `FormsApp` tidak tersedia** (mis. diuji di node) →
+- Ambil ID form dari URL edit (`/d/<ID>/edit`), URL publikasi
+  (`/d/e/<ID>/viewform`, v1.2.3), atau ID mentah. Service yang dipakai
+  adalah `FormApp` (nama resmi Apps Script — v1.2.3 memperbaiki penulisan
+  `FormsApp` yang membuat guard selalu menolak).
+- **Jika `FormApp` tidak tersedia** (mis. diuji di node) →
   `{ success:false, message:'Impor Google Form hanya bisa dijalankan di Apps Script.' }`.
 - Baca item: `MULTIPLE_CHOICE` → opsi + kunci dari
   `choice.isCorrectAnswer()` (mode kuis); item lain → `dilewati`.
 - Soal tanpa kunci yang jelas → `dilewati` (tidak diimpor diam-diam).
+- v1.2.3: soal duplikat (mapel+judul) → `dilewati` (idempotent); baris baru
+  ditulis SATU `setValues`.
 - Bobot default 1; opsi E boleh kosong; jenis hasil impor = `pg`.
 
 → `{ success:true, data:{ imported, dilewati:[{ judul, alasan }] } }`

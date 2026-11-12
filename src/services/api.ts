@@ -110,6 +110,7 @@ const AKSI_BOLEH_RETRY = new Set([
   'importSiswa', // idempotent via upsert NIS -> aman di-retry per batch
   'importMapel', // idempotent: duplikat (jenjang+nama) dilewati -> aman di-retry
   'importSoal', // idempotent: soal duplikat (mapel+teks) dilewati -> aman di-retry
+  'importSoalDariForm', // idempotent sejak v1.2.3: duplikat dilewati -> aman di-retry
 ]);
 
 function tungguMs(ms: number): Promise<void> {

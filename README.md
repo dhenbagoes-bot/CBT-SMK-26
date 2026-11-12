@@ -1,4 +1,4 @@
-# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.2.2
+# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.2.3
 
 Aplikasi ujian digital (CBT) khusus untuk SMK Negeri 1 Juwangi.
 Siswa mengerjakan ujian langsung dari browser (laptop & HP), guru mengelola bank soal &
@@ -42,6 +42,16 @@ hasil simpan Excel/LibreOffice (kompresi deflate) gagal dibaca — hanya file
 dari writer aplikasi sendiri (metode store) yang lolos. Kini memakai ukuran
 terkompresi yang benar + ada tes regresi dengan fixture deflate. Perbaikan
 hanya di frontend — **backend tidak perlu di-update lagi** (tetap versi 1.2.1).
+
+**Yang baru di v1.2.3 (perbaikan impor Google Form — sebelumnya selalu gagal):**
+kode memakai nama service yang salah (`FormsApp`, tidak ada di Apps Script)
+sehingga guard-nya selalu menolak dengan pesan "hanya bisa dijalankan di Apps
+Script" — kini memakai `FormApp` yang benar (terverifikasi ke dokumentasi
+resmi Google). URL publikasi form (`.../d/e/<ID>/viewform`) kini dikenali
+(segmen `e/` sebelumnya tertangkap sebagai ID); impor dari Form kini
+melewati soal duplikat + tulis batch (aman diulang), dan ikut di-retry
+otomatis. **Wajib update backend + otorisasi Forms ulang** (langkah A.6 &
+C2) — scope Forms baru diminta saat `authorizeFormsAccess` dijalankan.
 
 **Stack:** React 19 + Vite + TypeScript + Tailwind 4 (frontend, deploy di Vercel) •
 Google Apps Script + Google Sheets + Google Drive (backend, gratis, milik sekolah sendiri).
@@ -94,8 +104,11 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
    dengan `backend/appsscript.json` (sudah memuat scope Sheets + Drive + Forms).
 5. **Otorisasi Drive:** di editor Apps Script, pilih fungsi `authorizeDriveAccess` → **Run**.
    Setujui izin saat diminta (diperlukan untuk upload logo & gambar soal).
-6. **Otorisasi Forms** (bila ingin impor soal dari Google Form): pilih fungsi
-   `authorizeFormsAccess` → **Run**, setujui izin.
+6. **Otorisasi Forms** (WAJIB bila ingin impor soal dari Google Form): pilih
+   fungsi `authorizeFormsAccess` → **Run** → setujui izin (termasuk akses
+   Google Forms). Tanpa ini, impor dari Form ditolak backend. Ulangi langkah
+   ini setiap kali `Kode.gs` diperbarui dengan perubahan terkait Forms
+   (mis. v1.2.3) agar scope terbaru ikut disetujui.
 7. **Deploy:** Deploy → New deployment → tipe **Web app** →
    *Execute as:* **Me**, *Who has access:* **Anyone** → Deploy → **salin URL `/exec`**.
 
@@ -105,7 +118,7 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
    (Bila sudah terhubung, konfigurasi ada di **Pengaturan → Konfigurasi Backend**,
    khusus admin.)
 2. Tempel URL `/exec` ke kolom *URL Backend Manual* → **Simpan URL**.
-3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.2.1 ...`.
+3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.2.3 ...`.
 4. Klik **Inisialisasi Database** — membuat 12 sheet + akun bawaan
    `admin`/`admin123` dan `guru`/`guru123`, jenjang SMK/SMA/MA,
    6 kelas seed (7A, 7B, 8A, 8B, 9A, 9B),
@@ -153,7 +166,7 @@ Data di spreadsheet tidak ikut berubah — **jangan** jalankan
 3. Klik **Deploy → Manage deployments** → klik ikon pensil ✏️ pada deployment
    yang aktif → **Version: New version** → **Deploy**.
 4. Verifikasi: buka aplikasi → login admin → **Pengaturan → Konfigurasi
-   Backend → Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.2.1 ...`.
+   Backend → Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.2.3 ...`.
    Bila masih tertulis versi lama, tunggu 1–2 menit lalu uji lagi (cache
    deployment Google kadang lambat berubah).
 
@@ -190,7 +203,15 @@ Data di spreadsheet tidak ikut berubah — **jangan** jalankan
 
 1. **Bank Soal** → *Template & Unggah*: unduh template `.txt`/`.docx`/`.xlsx`
    (sudah ada contoh siap pakai), isi, unggah → pratinjau + validasi per baris → Impor.
-   Atau: *Google Form* → tempel URL/ID form kuis → Impor.
+   Atau: *Google Form* → tempel URL/ID form kuis → Impor. Syarat impor Form:
+   (a) backend sudah otorisasi Forms (langkah A.6); (b) form memakai **mode
+   kuis** dan tiap soal sudah punya **kunci jawaban** (diatur di form);
+   (c) hanya soal **pilihan ganda** (2–5 opsi, tepat 1 kunci) yang terimpor —
+   sisanya dilewati dengan alasan; (d) URL edit (`.../d/<ID>/edit`), URL
+   publikasi (`.../d/e/<ID>/viewform`), atau ID mentah — ketiganya bisa;
+   (e) form harus bisa dibuka akun Google yang mendeploy backend (akun yang
+   sama, atau form dibagikan ke akun itu). Impor ulang form yang sama aman —
+   soal duplikat dilewati.
    Setiap soal punya jenis (PG / PG Kompleks / Benar-Salah / Menjodohkan /
    Isian Singkat / Essay), bobot, mapel, kelas, dan tingkat kesulitan
    (Mudah/Sedang/Sulit).

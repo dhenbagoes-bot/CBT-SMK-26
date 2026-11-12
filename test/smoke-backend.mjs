@@ -6,7 +6,7 @@
 // master Jenjang/Mapel/Kelas (+tolak hapus bila dipakai),
 // Pengguna (CRUD, validasi, hapus diri/admin-terakhir, reset password,
 // importSiswa duplikat->update), BankSoal (validasi, hapus-dipakai,
-// importSoal, importSoalDariForm + guard FormsApp), Paket (validasi lengkap),
+// importSoal, importSoalDariForm + guard FormApp), Paket (validasi lengkap),
 // Sesi (mulai idempotent+acak, get, batalkan idempotent/beacon, peringatan
 // auto-batal, submit DINILAI SERVER + idempotent, resetSesi),
 // rekapHasil, getHasilSiswa (rincian hanya bila diizinkan), monitorSesi,
@@ -175,7 +175,7 @@ const DriveApp = {
   createFolder(n) { const f = makeFolder(n); this._roots[n] = f; return f; },
 };
 
-// ---------- Jalankan Kode.gs di sandbox (TANPA FormsApp -> uji guard) ----------
+// ---------- Jalankan Kode.gs di sandbox (TANPA FormApp -> uji guard) ----------
 const ctx = vm.createContext({
   SpreadsheetApp, ContentService, Utilities, Session, DriveApp, Logger, LockService, console,
 });
@@ -264,8 +264,8 @@ eq(sheetRows('Pengaturan').filter((x) => x[0] === 'namaSekolah').length, 1, 'kun
 
 console.log('\n[2] ping, doGet, aksi tak dikenal, LockService v1.1.0 (fine-grained)');
 r = post('ping');
-ok(r.success && r.data.version === '1.2.1' && !!r.data.waktu, 'ping -> version + waktu');
-eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.2.1' } }, 'doGet -> info service');
+ok(r.success && r.data.version === '1.2.3' && !!r.data.waktu, 'ping -> version + waktu');
+eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.2.3' } }, 'doGet -> info service');
 r = post('aksiTakDikenal');
 ok(!r.success && r.message === 'Aksi tidak dikenal: aksiTakDikenal', 'aksi tak dikenal -> message sesuai kontrak');
 // v1.1.0: kunci global dihapus — aksi BACA tidak boleh menyentuh LockService sama sekali
@@ -657,11 +657,11 @@ ok(r.success, 'importSoal ulang sukses');
 eq([r.data.imported, r.data.duplikat, r.data.errors.length], [1, 3, 0], 'importSoal: imported=1, duplikat=3, errors=0');
 eq(sheetRows('BankSoal').length, jmlSoalSebelum + 1, 'sheet BankSoal hanya +1 baris');
 
-console.log('\n[11] importSoalDariForm — guard FormsApp + impor palsu');
-// (a) Tanpa FormsApp di konteks -> error ramah
+console.log('\n[11] importSoalDariForm — guard FormApp + impor palsu');
+// (a) Tanpa FormApp di konteks -> error ramah
 r = post('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'abc', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
-ok(!r.success && r.message === 'Impor Google Form hanya bisa dijalankan di Apps Script.', 'guard FormsApp -> error ramah');
-// (b) Konteks kedua DENGAN FormsApp palsu (berbagi sheet yang sama)
+ok(!r.success && r.message === 'Impor Google Form hanya bisa dijalankan di Apps Script.', 'guard FormApp -> error ramah');
+// (b) Konteks kedua DENGAN FormApp palsu (berbagi sheet yang sama)
 function makeChoice(v, c) { return { getValue: () => v, isCorrectAnswer: () => !!c }; }
 function mcItem(title, pairs) {
   return {
@@ -680,9 +680,14 @@ const fakeForm = {
     mcItem('Lima opsi kunci D?', [['a', false], ['b', false], ['c', false], ['d', true], ['e', false]]),
   ],
 };
-const fakeFormsApp = {
+const fakeForm2 = {
+  getItems: () => [
+    mcItem('Soal form456?', [['Ya', true], ['Tidak', false]]),
+  ],
+};
+const fakeFormApp = {
   ItemType: { MULTIPLE_CHOICE: 'MULTIPLE_CHOICE', TEXT: 'TEXT', PARAGRAPH_TEXT: 'PARAGRAPH_TEXT' },
-  _forms: { form123: fakeForm },
+  _forms: { form123: fakeForm, form456: fakeForm2 },
   openById(id) {
     const f = this._forms[id];
     if (!f) throw new Error('Form not found: ' + id);
@@ -690,7 +695,7 @@ const fakeFormsApp = {
   },
 };
 const ctx2 = vm.createContext({
-  SpreadsheetApp, ContentService, Utilities, Session, DriveApp, Logger, LockService, FormsApp: fakeFormsApp, console,
+  SpreadsheetApp, ContentService, Utilities, Session, DriveApp, Logger, LockService, FormApp: fakeFormApp, console,
 });
 vm.runInContext(src, ctx2, { filename: 'Kode.gs' });
 function post2(action, extra = {}) {
@@ -716,7 +721,14 @@ eq(r.data.dilewati.length, 5, 'dilewati=5 (tanpa kunci, kunci ganda, text, 6 ops
   eq([imp1[1], imp1[2]], ['JJG-SMK', MAPEL_MTS_1], 'jenjangId/mapelId tersimpan');
 }
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'form123', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
-ok(r.success && r.data.imported === 2, 'ID mentah (tanpa URL) juga bisa');
+ok(r.success, 'ID mentah (tanpa URL) juga bisa');
+eq([r.data.imported, r.data.dilewati.length], [0, 7], 'impor ulang form sama: imported=0, dilewati=7 (dedupe v1.2.3)');
+ok(r.data.dilewati.some((d) => /Duplikat/.test(d.alasan)), 'dilewati memuat alasan duplikat');
+// URL publikasi /d/e/<ID>/viewform (v1.2.3): segmen "e/" tidak boleh jadi ID
+r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'https://docs.google.com/forms/d/e/form456/viewform', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
+ok(r.success && r.data.imported === 1, 'URL /d/e/ form456 terimpor');
+r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'https://docs.google.com/forms/d/e/form456/viewform', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
+eq([r.data.imported, r.data.dilewati.length], [0, 1], 'impor ulang via /d/e/: imported=0 (dedupe)');
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'tidakada', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
 ok(!r.success && /tidak ditemukan atau tidak dapat diakses/i.test(r.message), 'form id tak dikenal -> error');
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: '', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });

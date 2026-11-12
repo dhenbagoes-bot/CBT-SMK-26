@@ -66,7 +66,7 @@
  *    SEGERA ganti kata sandi setelah inisialisasi!
  */
 
-var APP_VERSION = '1.2.1';
+var APP_VERSION = '1.2.3';
 
 // ============================================================
 // KONFIGURASI SHEET (satu sumber kebenaran untuk nama & header)
@@ -931,7 +931,7 @@ function authorizeDriveAccess() {
 
 /** Jalankan manual dari editor untuk memberi izin Google Forms. */
 function authorizeFormsAccess() {
-  try { FormsApp.getActiveForm(); } catch (e) {}
+  try { FormApp.getActiveForm(); } catch (e) {}
   Logger.log('Otorisasi Forms OK. (Abaikan error form aktif — izin sudah diminta.)');
 }
 
@@ -1845,11 +1845,11 @@ function actionImportSoal(ss, user, p) {
 
 /**
  * Impor soal dari Google Form (mode kuis). Hanya berjalan di Apps Script;
- * di lingkungan tanpa FormsApp (mis. diuji di node) kembalikan error ramah.
+ * di lingkungan tanpa FormApp (mis. diuji di node) kembalikan error ramah.
  */
 function actionImportSoalDariForm(ss, user, p) {
   try {
-    if (typeof FormsApp === 'undefined') {
+    if (typeof FormApp === 'undefined') {
       return { success: false, message: 'Impor Google Form hanya bisa dijalankan di Apps Script.' };
     }
     var formIdOrUrl = asString(p.formIdOrUrl);
@@ -1865,20 +1865,31 @@ function actionImportSoalDariForm(ss, user, p) {
       return { success: false, message: 'Mapel tidak ditemukan.' };
     }
 
-    // Ambil ID form dari URL (.../d/<ID>/...) atau pakai ID mentah
-    var m = formIdOrUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    // Ambil ID form dari URL edit (.../d/<ID>/edit) MAUPUN URL publikasi
+    // (.../d/e/<ID>/viewform — perhatikan segmen "e/") atau pakai ID mentah.
+    var m = formIdOrUrl.match(/\/d\/(?:e\/)?([a-zA-Z0-9-_]+)/);
     var formId = m ? m[1] : formIdOrUrl;
     var form;
     try {
-      form = FormsApp.openById(formId);
+      form = FormApp.openById(formId);
     } catch (e0) {
       return { success: false, message: 'Google Form tidak ditemukan atau tidak dapat diakses.' };
     }
 
     var items = form.getItems();
     var sheet = ss.getSheetByName(SHEET_BANKSOAL);
+    // Dedupe (v1.2.3, idempotent): soal yang sudah ada dibaca SEKALI; judul yang
+    // sama pada mapel yang sama dilewati agar impor ulang form yang sama tidak
+    // menggandakan soal. Baris baru ditulis dengan SATU setValues.
+    var adaRows = readRows(sheet);
+    var sudahAda = {};
+    for (var e = 0; e < adaRows.length; e++) {
+      sudahAda[asString(adaRows[e][2]) + '\n' + normalisasiTeksKunci(asString(adaRows[e][3]))] = true;
+    }
     var imported = 0;
     var dilewati = [];
+    var antre = [];
+    var now = sekarangISODateTime();
     var huruf = ['A', 'B', 'C', 'D', 'E'];
 
     for (var i = 0; i < items.length; i++) {
@@ -1887,7 +1898,7 @@ function actionImportSoalDariForm(ss, user, p) {
       try { judul = asString(item.getTitle()); } catch (e1) {}
       if (!judul) judul = 'Soal ke-' + (i + 1);
 
-      if (item.getType() !== FormsApp.ItemType.MULTIPLE_CHOICE) {
+      if (item.getType() !== FormApp.ItemType.MULTIPLE_CHOICE) {
         dilewati.push({ judul: judul, alasan: 'Bukan soal pilihan ganda.' });
         continue;
       }
@@ -1919,16 +1930,25 @@ function actionImportSoalDariForm(ss, user, p) {
         dilewati.push({ judul: judul, alasan: 'Lebih dari satu kunci jawaban.' });
         continue;
       }
+      var kunciSoal = mapelId + '\n' + normalisasiTeksKunci(judul);
+      if (sudahAda[kunciSoal]) {
+        dilewati.push({ judul: judul, alasan: 'Duplikat — soal sudah ada di bank soal.' });
+        continue;
+      }
+      sudahAda[kunciSoal] = true;
       var opsi = ['', '', '', '', ''];
       for (var c2 = 0; c2 < choices.length; c2++) {
         try { opsi[c2] = asString(choices[c2].getValue()); } catch (e4) {}
       }
-      sheet.appendRow([Utilities.getUuid(), jenjangId, mapelId, judul,
+      antre.push([Utilities.getUuid(), jenjangId, mapelId, judul,
         opsi[0], opsi[1], opsi[2], opsi[3], opsi[4],
-        huruf[kunciIdx], 1, '', '', sekarangISODateTime(), user.username,
+        huruf[kunciIdx], 1, '', '', now, user.username,
         'pg', JSON.stringify(opsi.filter(function (x) { return !!x; })),
         JSON.stringify(huruf[kunciIdx]), 'Sedang', '']);
       imported++;
+    }
+    if (antre.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, antre.length, 20).setValues(antre);
     }
 
     return {
