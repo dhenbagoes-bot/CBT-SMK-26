@@ -20,6 +20,7 @@ import {
   deleteKelas,
   deleteMapel,
   deletePengguna,
+  importMapel,
   importSiswa,
   resetPassword,
   saveJenjang,
@@ -667,6 +668,7 @@ function ImporMapel({ data, toast, refreshData }: Pick<PageProps, 'data' | 'toas
   const [jenjangId, setJenjangId] = useState(data.jenjang[0]?.id || '');
   const [parseLoading, setParseLoading] = useState(false);
   const [imporLoading, setImporLoading] = useState(false);
+  const [progresImpor, setProgresImpor] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const validCount = baris.filter((b) => b.valid).length;
 
@@ -688,39 +690,56 @@ function ImporMapel({ data, toast, refreshData }: Pick<PageProps, 'data' | 'toas
   const impor = async () => {
     const items = baris.filter((b) => b.valid);
     if (items.length === 0) return toast('Tidak ada baris valid.', 'error');
-    setImporLoading(true);
-    let masuk = 0;
-    let lewati = 0;
-    try {
-      for (const b of items) {
-        const nama = (b.item.nama || '').trim();
-        // Jenjang dari kolom file (cocok nama) atau pilihan di form.
-        const jenjangNama = (b.item.jenjang || '').trim().toLowerCase();
-        const jenjangCocok = jenjangNama
-          ? data.jenjang.find((j) => j.nama.toLowerCase() === jenjangNama)?.id
-          : undefined;
-        const jId = jenjangCocok || jenjangId;
-        if (!jId) {
-          lewati++;
-          continue;
-        }
-        const sudahAda = data.mapel.some(
-          (m) => m.jenjangId === jId && m.nama.toLowerCase() === nama.toLowerCase()
-        );
-        if (sudahAda) {
-          lewati++;
-          continue;
-        }
-        await saveMapel({ jenjangId: jId, nama });
-        masuk++;
+    // Selesaikan jenjang per baris: kolom file (cocok nama) atau pilihan di form.
+    const rows: { nama: string; jenjangId: string }[] = [];
+    let tanpaJenjang = 0;
+    for (const b of items) {
+      const nama = (b.item.nama || '').trim();
+      const jenjangNama = (b.item.jenjang || '').trim().toLowerCase();
+      const jenjangCocok = jenjangNama
+        ? data.jenjang.find((j) => j.nama.toLowerCase() === jenjangNama)?.id
+        : undefined;
+      const jId = jenjangCocok || jenjangId;
+      if (!jId) {
+        tanpaJenjang++;
+        continue;
       }
-      toast(`Impor mapel selesai: ${masuk} masuk${lewati ? `, ${lewati} dilewati (duplikat/tanpa jenjang).` : '.'}`, 'sukses');
+      rows.push({ nama, jenjangId: jId });
+    }
+    if (rows.length === 0) return toast('Tidak ada baris dengan jenjang yang jelas.', 'error');
+    setImporLoading(true);
+    // v1.2.1: kirim per batch 100 lewat action importMapel (sebelumnya 1 request
+    // per mapel tanpa retry — sekali throttle Google, impor gagal total di
+    // tengah jalan). Duplikat dilewati server, jadi aman diulang.
+    const UKURAN_BATCH = 100;
+    let masuk = 0;
+    let lewati = tanpaJenjang;
+    const errors: { baris: number; pesan: string }[] = [];
+    try {
+      for (let b = 0; b < rows.length; b += UKURAN_BATCH) {
+        const potong = rows.slice(b, b + UKURAN_BATCH);
+        setProgresImpor(`Mengimpor ${Math.min(b + UKURAN_BATCH, rows.length)}/${rows.length}…`);
+        const r = await importMapel(potong);
+        masuk += r.imported;
+        lewati += r.dilewati;
+        for (const e of r.errors) errors.push({ baris: e.baris + b, pesan: e.pesan });
+      }
+      let pesan = `Impor mapel selesai: ${masuk} masuk${lewati ? `, ${lewati} dilewati (duplikat/tanpa jenjang)` : ''}.`;
+      if (errors.length) pesan += ` ${errors.length} baris error: ` + errors.slice(0, 3).map((e) => `baris ${e.baris}: ${e.pesan}`).join(' | ');
+      toast(pesan, errors.length ? 'error' : 'sukses');
       setBaris([]);
       await refreshData();
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Impor gagal.', 'error');
+      // Batch yang sudah terkirim TETAP tersimpan; ulangi impor file yang sama
+      // untuk sisanya — duplikat dilewati otomatis, tidak akan ganda.
+      toast(
+        `Impor terhenti di tengah jalan: ${masuk} mapel sudah masuk${lewati ? `, ${lewati} dilewati` : ''}. ${err instanceof Error ? err.message : 'Impor gagal.'} Ulangi impor file yang sama untuk sisanya (duplikat dilewati).`,
+        'error'
+      );
+      await refreshData().catch(() => {});
     } finally {
       setImporLoading(false);
+      setProgresImpor('');
     }
   };
 
@@ -785,7 +804,8 @@ function ImporMapel({ data, toast, refreshData }: Pick<PageProps, 'data' | 'toas
               </tbody>
             </table>
           </TabelResponsif>
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <p className="text-xs text-slate-400">{progresImpor}</p>
             <Button onClick={impor} loading={imporLoading} disabled={validCount === 0}>
               Impor {validCount} Mapel
             </Button>

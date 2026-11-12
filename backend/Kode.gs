@@ -66,7 +66,7 @@
  *    SEGERA ganti kata sandi setelah inisialisasi!
  */
 
-var APP_VERSION = '1.0.0';
+var APP_VERSION = '1.2.1';
 
 // ============================================================
 // KONFIGURASI SHEET (satu sumber kebenaran untuk nama & header)
@@ -162,6 +162,11 @@ function asString(v) {
 function asInt(v, def) {
   var n = parseInt(asString(v), 10);
   return isNaN(n) ? (def === undefined ? 0 : def) : n;
+}
+
+/** Kunci pembanding teks: huruf kecil + spasi tunggal (dedupe impor, v1.2.1). */
+function normalisasiTeksKunci(s) {
+  return asString(s).toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 /** Flag 0/1 yang pemaaf: terima 0/1/'0'/'1'/true/false; selainnya default. */
@@ -687,6 +692,10 @@ function doPost(e) {
         return denganAuth(ss, payload, 'admin', function () {
           return denganKunci(function () { return actionDeleteMapel(ss, payload); });
         });
+      case 'importMapel':
+        return denganAuth(ss, payload, 'admin', function () {
+          return denganKunci(function () { return actionImportMapel(ss, payload); });
+        });
       case 'saveKelas':
         return denganAuth(ss, payload, 'admin', function () {
           return denganKunci(function () { return actionSaveKelas(ss, payload); });
@@ -1113,6 +1122,58 @@ function actionSaveMapel(ss, p) {
   var baru = Utilities.getUuid();
   sheet.appendRow([baru, jenjangId, nama, sekarangISODateTime()]);
   return { success: true, message: 'Mapel berhasil disimpan.', data: { id: baru } };
+}
+
+/**
+ * Impor mapel batch (v1.2.1). Pola yang sama seperti importSiswa: sheet dibaca
+ * SEKALI di awal, baris baru ditulis dengan SATU setValues. Idempotent: mapel
+ * dengan (jenjangId, nama) sama — abaikan huruf besar/kecil & spasi berlebih —
+ * dilewati (dihitung `dilewati`), sehingga impor yang terputus di tengah jalan
+ * aman diulang tanpa menggandakan data. Menggantikan loop saveMapel per baris
+ * di frontend yang rawan "Failed to fetch" saat throttle Google.
+ */
+function actionImportMapel(ss, p) {
+  var hasil = { imported: 0, dilewati: 0, errors: [] };
+  try {
+    var rows = p.rows;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return { success: false, message: 'Data mapel kosong.' };
+    }
+    var jenjangRows = readRows(ss.getSheetByName(SHEET_JENJANG));
+    var jenjangAda = {};
+    for (var j = 0; j < jenjangRows.length; j++) jenjangAda[asString(jenjangRows[j][0])] = true;
+    var mapelRows = readRows(ss.getSheetByName(SHEET_MAPEL));
+    var sudahAda = {};
+    for (var m = 0; m < mapelRows.length; m++) {
+      sudahAda[asString(mapelRows[m][1]) + '\n' + normalisasiTeksKunci(asString(mapelRows[m][2]))] = true;
+    }
+    var sheet = ss.getSheetByName(SHEET_MAPEL);
+    var antre = [];
+    var now = sekarangISODateTime();
+    for (var i = 0; i < rows.length; i++) {
+      var baris = i + 1;
+      var r = rows[i] || {};
+      var nama = asString(r.nama).replace(/\s+/g, ' ').trim();
+      var jenjangId = asString(r.jenjangId);
+      if (!nama) { hasil.errors.push({ baris: baris, pesan: 'Nama mapel kosong.' }); continue; }
+      if (!jenjangId || !jenjangAda[jenjangId]) { hasil.errors.push({ baris: baris, pesan: 'Jenjang tidak ditemukan.' }); continue; }
+      var kunci = jenjangId + '\n' + normalisasiTeksKunci(nama);
+      if (sudahAda[kunci]) { hasil.dilewati++; continue; }
+      sudahAda[kunci] = true;
+      antre.push([Utilities.getUuid(), jenjangId, nama, now]);
+      hasil.imported++;
+    }
+    if (antre.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, antre.length, 4).setValues(antre);
+    }
+    return {
+      success: true,
+      message: 'Impor mapel selesai: ' + hasil.imported + ' masuk, ' + hasil.dilewati + ' dilewati (duplikat), ' + hasil.errors.length + ' error.',
+      data: hasil
+    };
+  } catch (err) {
+    return { success: false, error: 'importMapel: ' + err.message };
+  }
 }
 
 function actionDeleteMapel(ss, p) {
@@ -1727,7 +1788,7 @@ function actionDeleteSoal(ss, p) {
 }
 
 function actionImportSoal(ss, user, p) {
-  var hasil = { imported: 0, errors: [] };
+  var hasil = { imported: 0, duplikat: 0, errors: [] };
   try {
     var jenjangId = asString(p.jenjangId);
     var mapelId = asString(p.mapelId);
@@ -1736,6 +1797,14 @@ function actionImportSoal(ss, user, p) {
       return { success: false, message: 'Data soal kosong.' };
     }
     var sheet = ss.getSheetByName(SHEET_BANKSOAL);
+    // Dedupe (v1.2.1, idempotent): soal yang sudah ada dibaca SEKALI, kunci =
+    // mapelId + teks soal ternormalisasi. Impor ulang file yang sama (mis.
+    // setelah koneksi putus) tidak menggandakan soal; duplikat dihitung.
+    var adaRows = readRows(sheet);
+    var sudahAda = {};
+    for (var e = 0; e < adaRows.length; e++) {
+      sudahAda[asString(adaRows[e][2]) + '\n' + normalisasiTeksKunci(asString(adaRows[e][3]))] = true;
+    }
     var antre = [];
     var now = sekarangISODateTime();
     for (var i = 0; i < items.length; i++) {
@@ -1749,6 +1818,9 @@ function actionImportSoal(ss, user, p) {
         continue;
       }
       var d = v.data;
+      var kunciSoal = d.mapelId + '\n' + normalisasiTeksKunci(d.soal);
+      if (sudahAda[kunciSoal]) { hasil.duplikat++; continue; }
+      sudahAda[kunciSoal] = true;
       antre.push([Utilities.getUuid(), d.jenjangId, d.mapelId, d.soal,
         d.opsiA, d.opsiB, d.opsiC, d.opsiD, d.opsiE, d.kunci, d.bobot,
         d.pembahasan, d.gambarUrl, now, user.username,
@@ -1763,7 +1835,7 @@ function actionImportSoal(ss, user, p) {
     return {
       success: true,
       message: 'Impor selesai: ' + hasil.imported + ' soal diimpor, ' +
-        hasil.errors.length + ' gagal.',
+        hasil.duplikat + ' duplikat dilewati, ' + hasil.errors.length + ' gagal.',
       data: hasil
     };
   } catch (err) {

@@ -1,7 +1,7 @@
 # Kontrak API — Backend wwn-cbt-madrasah-80 (CBT Digital — SMK Negeri 1 Juwangi)
 
 Backend: Google Apps Script + Google Sheets + Google Drive.
-Versi: `1.0.0` (`APP_VERSION` di `backend/Kode.gs`).
+Versi: `1.2.1` (`APP_VERSION` di `backend/Kode.gs`).
 Fork dari wwn-cbt-atm-80 v1.1.4 — yang baru di v1.0.0: sheet `JawabanSiswa`,
 6 jenis soal, token ujian statis, autosave + resume, penilaian essay manual,
 anti-bentrok jadwal, `durasiStandar` & `jedaGelombang` di Pengaturan.
@@ -18,7 +18,7 @@ ke URL `/exec` Web App. Respons SELALU memakai envelope:
 `doGet` (GET biasa, tanpa parameter) hanya mengembalikan info service:
 
 ```json
-{ "success": true, "data": { "service": "wwn-cbt-madrasah-80", "version": "1.0.0" } }
+{ "success": true, "data": { "service": "wwn-cbt-madrasah-80", "version": "1.2.1" } }
 ```
 
 **Pengecualian beacon**: `batalkanSesi` juga dipanggil via
@@ -147,7 +147,7 @@ Status hasil vs KKM (default 75, dari Pengaturan):
 ## Daftar action
 
 ### `ping` (publik)
-→ `{ success:true, data:{ version:"1.0.0", waktu:"yyyy-MM-dd HH:mm:ss" } }`
+→ `{ success:true, data:{ version:"1.2.1", waktu:"yyyy-MM-dd HH:mm:ss" } }`
 
 ### `login` (publik) `{ username, password }`
 Username case-insensitive; tolak jika `Aktif != 1`.
@@ -189,6 +189,9 @@ Aturan filter:
 `saveJenjang { id?, nama }`, `deleteJenjang { id }` (tolak jika dipakai
 Mapel/Kelas/BankSoal/Paket),
 `saveMapel { id?, jenjangId, nama }`, `deleteMapel { id }` (tolak jika dipakai),
+`importMapel` 🔒🔒 `{ rows:[{ nama, jenjangId }] }` (v1.2.1) — batch: sheet dibaca
+SEKALI, baris baru SATU `setValues`; duplikat (jenjang+nama, abaikan huruf/spasi)
+dilewati → `{ imported, dilewati, errors:[{ baris, pesan }] }` (idempotent),
 `saveKelas { id?, jenjangId, nama }`, `deleteKelas { id }` (tolak jika dipakai
 Pengguna/Paket).
 - `saveKelas` menolak nama kelas yang **sudah ada pada jenjang yang sama**
@@ -246,8 +249,11 @@ Pengguna/Paket).
 `importSoal` 🔒 guru `{ jenjangId, mapelId, items:[{...sama seperti saveSoal...}] }`
 - Validasi per item sama seperti `saveSoal`; item tak valid → `errors`,
   item valid tetap diimpor; baris valid ditulis dengan SATU `setValues`.
+- v1.2.1: soal duplikat (mapel+teks, abaikan huruf/spasi) dilewati → `duplikat`
+  (idempotent — impor ulang file yang sama tidak menggandakan; frontend
+  mengirim per batch 100 dengan retry otomatis).
 
-→ `{ success:true, data:{ imported, errors:[{ baris, pesan }] } }`
+→ `{ success:true, data:{ imported, duplikat, errors:[{ baris, pesan }] } }`
 
 `importSoalDariForm` 🔒 guru `{ formIdOrUrl, jenjangId, mapelId }`
 - Ambil ID form dari URL (`/d/<ID>/`) atau ID mentah.

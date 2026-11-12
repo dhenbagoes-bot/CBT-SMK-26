@@ -746,6 +746,7 @@ function ImporSoalModal({
   const [namaFile, setNamaFile] = useState('');
   const [parseLoading, setParseLoading] = useState(false);
   const [imporLoading, setImporLoading] = useState(false);
+  const [progresImpor, setProgresImpor] = useState('');
   const [formUrl, setFormUrl] = useState('');
   const [formLoading, setFormLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -795,18 +796,41 @@ function ImporSoalModal({
       }));
     if (items.length === 0) return toast('Tidak ada baris valid untuk diimpor.', 'error');
     setImporLoading(true);
+    // v1.2.1: kirim per batch 100 (sebelumnya 1 request besar sekaligus —
+    // rawan putus saat throttle). Duplikat dilewati server, jadi aman diulang.
+    const UKURAN_BATCH = 100;
+    let imported = 0;
+    let duplikat = 0;
+    const errors: { baris: number; pesan: string }[] = [];
     try {
-      const r = await importSoal(jenjangId, mapelId, items);
-      toast(`Berhasil: ${r.imported} soal diimpor${r.errors.length ? `, ${r.errors.length} gagal.` : '.'}`, r.errors.length ? 'error' : 'sukses');
-      if (r.errors.length) {
-        toast('Detail: ' + r.errors.slice(0, 3).map((e) => `baris ${e.baris}: ${e.pesan}`).join(' | '), 'error');
+      for (let b = 0; b < items.length; b += UKURAN_BATCH) {
+        const potong = items.slice(b, b + UKURAN_BATCH);
+        setProgresImpor(`Mengimpor ${Math.min(b + UKURAN_BATCH, items.length)}/${items.length}…`);
+        const r = await importSoal(jenjangId, mapelId, potong);
+        imported += r.imported;
+        duplikat += r.duplikat || 0;
+        for (const e of r.errors) errors.push({ baris: e.baris + b, pesan: e.pesan });
+      }
+      toast(
+        `Berhasil: ${imported} soal diimpor${duplikat ? `, ${duplikat} duplikat dilewati` : ''}${errors.length ? `, ${errors.length} gagal.` : '.'}`,
+        errors.length ? 'error' : 'sukses'
+      );
+      if (errors.length) {
+        toast('Detail: ' + errors.slice(0, 3).map((e) => `baris ${e.baris}: ${e.pesan}`).join(' | '), 'error');
       }
       await refreshData();
       onTutup();
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Impor gagal.', 'error');
+      // Batch yang sudah terkirim TETAP tersimpan; ulangi impor file yang sama
+      // untuk sisanya — duplikat dilewati otomatis, tidak akan ganda.
+      toast(
+        `Impor terhenti di tengah jalan: ${imported} soal sudah masuk${duplikat ? `, ${duplikat} duplikat dilewati` : ''}. ${err instanceof Error ? err.message : 'Impor gagal.'} Ulangi impor file yang sama untuk sisanya (duplikat dilewati).`,
+        'error'
+      );
+      await refreshData().catch(() => {});
     } finally {
       setImporLoading(false);
+      setProgresImpor('');
     }
   };
 
@@ -927,7 +951,8 @@ function ImporSoalModal({
                   </tbody>
                 </table>
               </TabelResponsif>
-              <div className="mt-3 flex justify-end">
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <p className="text-xs text-slate-400">{progresImpor}</p>
                 <Button onClick={impor} loading={imporLoading} disabled={validCount === 0}>
                   Impor {validCount} Soal Valid
                 </Button>

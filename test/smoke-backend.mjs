@@ -264,8 +264,8 @@ eq(sheetRows('Pengaturan').filter((x) => x[0] === 'namaSekolah').length, 1, 'kun
 
 console.log('\n[2] ping, doGet, aksi tak dikenal, LockService v1.1.0 (fine-grained)');
 r = post('ping');
-ok(r.success && r.data.version === '1.0.0' && !!r.data.waktu, 'ping -> version + waktu');
-eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.0.0' } }, 'doGet -> info service');
+ok(r.success && r.data.version === '1.2.1' && !!r.data.waktu, 'ping -> version + waktu');
+eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.2.1' } }, 'doGet -> info service');
 r = post('aksiTakDikenal');
 ok(!r.success && r.message === 'Aksi tidak dikenal: aksiTakDikenal', 'aksi tak dikenal -> message sesuai kontrak');
 // v1.1.0: kunci global dihapus — aksi BACA tidak boleh menyentuh LockService sama sekali
@@ -618,6 +618,44 @@ r = post('importSoal', {
 ok(r.success, 'importSoal sukses');
 eq([r.data.imported, r.data.errors.length], [2, 2], 'imported=2, errors=2');
 eq(r.data.errors.map((e) => e.baris), [2, 3], 'error di baris 2 & 3');
+
+console.log('\n[10b] importMapel batch + dedupe + idempotent (v1.2.1)');
+r = post('importMapel', { token: TOKEN_ADMIN, rows: [] });
+ok(!r.success, 'importMapel rows kosong ditolak');
+r = post('importMapel', { token: TOKEN_GURU3, rows: [{ nama: 'X', jenjangId: 'JJG-SMK' }] });
+ok(!r.success, 'importMapel ditolak untuk guru (admin saja)');
+const jmlMapelSebelum = sheetRows('Mapel').length;
+r = post('importMapel', { token: TOKEN_ADMIN, rows: [
+  { nama: 'MapelImpor A', jenjangId: 'JJG-SMK' },
+  { nama: 'MapelImpor B', jenjangId: 'JJG-SMK' },
+  { nama: 'mapelimpor  a', jenjangId: 'JJG-SMK' }, // duplikat dalam batch (huruf+spasi)
+  { nama: 'Bahasa Indonesia', jenjangId: 'JJG-SMK' }, // sudah ada di sheet (MAPEL_MTS_1)
+  { nama: '', jenjangId: 'JJG-SMK' },              // invalid
+  { nama: 'MapelImpor C', jenjangId: 'JJG-TIDAKADA' }, // jenjang tak ada
+] });
+ok(r.success, 'importMapel sukses');
+eq([r.data.imported, r.data.dilewati, r.data.errors.length], [2, 2, 2], 'importMapel: imported=2, dilewati=2, errors=2');
+eq(r.data.errors.map((e) => e.baris), [5, 6], 'importMapel: error di baris 5 & 6');
+eq(sheetRows('Mapel').length, jmlMapelSebelum + 2, 'sheet Mapel hanya +2 baris');
+// Ulangi batch yang sama -> idempotent: tidak ada baris baru
+r = post('importMapel', { token: TOKEN_ADMIN, rows: [
+  { nama: 'MapelImpor A', jenjangId: 'JJG-SMK' },
+  { nama: 'MapelImpor B', jenjangId: 'JJG-SMK' },
+] });
+eq([r.data.imported, r.data.dilewati], [0, 2], 'importMapel ulang: imported=0, dilewati=2');
+eq(sheetRows('Mapel').length, jmlMapelSebelum + 2, 'sheet Mapel tetap (idempotent)');
+
+console.log('\n[10c] importSoal dedupe (v1.2.1)');
+const jmlSoalSebelum = sheetRows('BankSoal').length;
+r = post('importSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1, items: [
+  { soal: 'Impor 1', opsiA: 'a', opsiB: 'b', opsiC: 'c', opsiD: 'd', kunci: 'A' },
+  { soal: '  IMPOR   1 ', opsiA: 'a', opsiB: 'b', opsiC: 'c', opsiD: 'd', kunci: 'A' },
+  { soal: 'Impor 5', opsiA: 'a', opsiB: 'b', opsiC: 'c', opsiD: 'd', kunci: 'A' },
+  { soal: 'Impor 5', opsiA: 'a', opsiB: 'b', opsiC: 'c', opsiD: 'd', kunci: 'A' },
+] });
+ok(r.success, 'importSoal ulang sukses');
+eq([r.data.imported, r.data.duplikat, r.data.errors.length], [1, 3, 0], 'importSoal: imported=1, duplikat=3, errors=0');
+eq(sheetRows('BankSoal').length, jmlSoalSebelum + 1, 'sheet BankSoal hanya +1 baris');
 
 console.log('\n[11] importSoalDariForm — guard FormsApp + impor palsu');
 // (a) Tanpa FormsApp di konteks -> error ramah

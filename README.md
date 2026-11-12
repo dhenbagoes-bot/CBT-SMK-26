@@ -1,4 +1,4 @@
-# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.2.0
+# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.2.1
 
 Aplikasi ujian digital (CBT) khusus untuk SMK Negeri 1 Juwangi.
 Siswa mengerjakan ujian langsung dari browser (laptop & HP), guru mengelola bank soal &
@@ -25,6 +25,16 @@ belum terhubung sama sekali (setup awal). Jenjang seed kini **SMK, SMA, MA**
 (sebelumnya MTs/SMP & MA/SMA/SMK). Selain itu tidak ada perubahan perilaku.
 Backend tidak perlu di-deploy ulang untuk v1.2.0 (hanya seed `Kode.gs` yang
 berubah; database live tidak ikut berubah — ubah jenjang lewat Kelola Data).
+
+**Yang baru di v1.2.1 (perbaikan "Failed to fetch" saat upload):** impor mapel
+kini memakai action batch baru `importMapel` (1 request per 100 baris, duplikat
+dilewati) menggantikan loop 1 request per mapel tanpa retry; impor soal ikut
+dilewati duplikatnya sehingga aman diulang; semua impor dikirim per batch 100
+dengan retry otomatis 4x (termasuk saat Google throttle HTTP 429); pesan error
+jaringan kini jelas, bukan mentah "Failed to fetch". **Wajib update backend
+untuk v1.2.1** (lihat "Update Backend" di bawah) — frontend v1.2.1 memanggil
+action baru yang belum ada di deployment backend v1.0.0. Data live tidak
+berubah; tidak perlu `initDatabase` ulang.
 
 **Stack:** React 19 + Vite + TypeScript + Tailwind 4 (frontend, deploy di Vercel) •
 Google Apps Script + Google Sheets + Google Drive (backend, gratis, milik sekolah sendiri).
@@ -88,7 +98,7 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
    (Bila sudah terhubung, konfigurasi ada di **Pengaturan → Konfigurasi Backend**,
    khusus admin.)
 2. Tempel URL `/exec` ke kolom *URL Backend Manual* → **Simpan URL**.
-3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.0.0 ...`.
+3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.2.1 ...`.
 4. Klik **Inisialisasi Database** — membuat 12 sheet + akun bawaan
    `admin`/`admin123` dan `guru`/`guru123`, jenjang SMK/SMA/MA,
    6 kelas seed (7A, 7B, 8A, 8B, 9A, 9B),
@@ -122,6 +132,23 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
    backend belum dihubungkan, atau langsung login.
 7. Setiap ada pembaruan kode: ulangi langkah 2–4 (upload file yang berubah
    lewat web) — Vercel otomatis deploy ulang.
+
+## C2. Update Backend (wajib saat `Kode.gs` berubah — mis. v1.2.1)
+
+URL `/exec` **tidak berubah**; yang diperbarui hanya versi deployment-nya.
+Data di spreadsheet tidak ikut berubah — **jangan** jalankan
+`initDatabase` ulang.
+
+1. Buka spreadsheet database → **Extensions → Apps Script** (project yang
+   sama seperti saat setup awal).
+2. Buka file `Kode.gs` di editor → pilih semua (Ctrl+A) → hapus → tempel
+   seluruh isi `backend/Kode.gs` dari arsip versi baru → **Save** (ikon disket).
+3. Klik **Deploy → Manage deployments** → klik ikon pensil ✏️ pada deployment
+   yang aktif → **Version: New version** → **Deploy**.
+4. Verifikasi: buka aplikasi → login admin → **Pengaturan → Konfigurasi
+   Backend → Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.2.1 ...`.
+   Bila masih tertulis versi lama, tunggu 1–2 menit lalu uji lagi (cache
+   deployment Google kadang lambat berubah).
 
 ## D. Konfigurasi Awal (login sebagai admin)
 

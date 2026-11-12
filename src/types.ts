@@ -403,6 +403,15 @@ export interface BarisSoalImpor {
 export interface HasilImpor {
   imported: number;
   updated: number;
+  /** Soal duplikat yang dilewati (hanya importSoal, sejak v1.2.1). */
+  duplikat?: number;
+  errors: { baris: number; pesan: string }[];
+}
+
+/** Hasil importMapel: duplikat (jenjang+nama sama) dilewati, bukan error. */
+export interface HasilImporMapel {
+  imported: number;
+  dilewati: number;
   errors: { baris: number; pesan: string }[];
 }
 

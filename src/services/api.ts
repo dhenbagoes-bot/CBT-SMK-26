@@ -6,6 +6,7 @@ import type {
   BarisSiswa,
   BarisSoalImpor,
   HasilImpor,
+  HasilImporMapel,
   HasilKirimNotifikasi,
   HasilSubmit,
   HasilUjian,
@@ -96,14 +97,19 @@ function validUrl(apiUrl: string): boolean {
 /**
  * v1.1.0 — Aksi yang aman diulang (idempotent di server: mulaiSesi, submitJawaban,
  * batalkanSesi, getSesi, getAllData, login, ping) otomatis di-retry bila:
- *  - jaringan gagal / HTTP 5xx, atau
+ *  - jaringan gagal / HTTP 5xx / HTTP 429 (throttle Google), atau
  *  - backend menjawab {success:false, retryable:true} (server sibuk sesaat).
  * Backoff eksponensial + jitter agar 1000 klien tidak menyerbu bersamaan.
+ * v1.2.1 — impor mapel & soal ikut masuk daftar ini karena backend-nya
+ * idempotent (duplikat dilewati), sehingga impor yang terputus di tengah
+ * jalan aman diulang per batch tanpa menggandakan data.
  */
 const AKSI_BOLEH_RETRY = new Set([
   'ping', 'login', 'getAllData', 'getSesi', 'mulaiSesi', 'batalkanSesi', 'submitJawaban',
   'simpanJawaban', 'getJawabanSesi',
   'importSiswa', // idempotent via upsert NIS -> aman di-retry per batch
+  'importMapel', // idempotent: duplikat (jenjang+nama) dilewati -> aman di-retry
+  'importSoal', // idempotent: soal duplikat (mapel+teks) dilewati -> aman di-retry
 ]);
 
 function tungguMs(ms: number): Promise<void> {
@@ -151,10 +157,24 @@ export async function api<T>(action: string, params: object = {}): Promise<T> {
     }
     if (!res.ok) {
       galatTerakhir = new Error(`Server merespons HTTP ${res.status}.`);
-      if (percobaan < maxPercobaan && res.status >= 500) { await tungguMs(jedaRetry(percobaan)); continue; }
+      // 429 = Google sedang membatasi (throttle) — pantas di-retry dengan jeda,
+      // sama seperti 5xx. Tanpa ini, impor gagal total saat throttle sesaat.
+      if (percobaan < maxPercobaan && (res.status === 429 || res.status >= 500)) { await tungguMs(jedaRetry(percobaan)); continue; }
       throw galatTerakhir;
     }
-    const json = await res.json();
+    // Baca badan respons di dalam try: koneksi yang putus di tengah badan
+    // (atau halaman error HTML Google saat throttle) membuat res.json()
+    // melempar TypeError mentah "Failed to fetch" — sebelumnya lolos tanpa
+    // dibungkus sehingga toast menampilkan pesan mentah itu. Perlakukan
+    // sebagai gangguan jaringan: boleh di-retry untuk aksi idempotent.
+    let json: { success?: boolean; retryable?: boolean; message?: string; error?: string; data?: unknown };
+    try {
+      json = JSON.parse(await res.text()) as typeof json;
+    } catch {
+      galatTerakhir = new Error('Gagal membaca respons backend. Periksa koneksi internet, lalu coba lagi.');
+      if (percobaan < maxPercobaan) { await tungguMs(jedaRetry(percobaan)); continue; }
+      throw galatTerakhir;
+    }
     if (json.success === false) {
       if (json.retryable === true && percobaan < maxPercobaan) {
         await tungguMs(jedaRetry(percobaan));
@@ -293,6 +313,11 @@ export function saveMapel(item: { id?: string; jenjangId: string; nama: string }
 
 export function deleteMapel(id: string): Promise<unknown> {
   return api('deleteMapel', { id });
+}
+
+/** Impor mapel batch (v1.2.1): satu request per batch, duplikat dilewati server. */
+export function importMapel(rows: { nama: string; jenjangId: string }[]): Promise<HasilImporMapel> {
+  return api('importMapel', { rows });
 }
 
 export function saveKelas(item: { id?: string; jenjangId: string; nama: string }): Promise<{ id: string }> {
