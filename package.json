@@ -1,0 +1,28 @@
+{
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "lucide-react": "^0.546.0",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "vite": "^8.3.0"
+  },
+  "description": "CBT Madrasah Digital \u2014 sistem ujian online MTs Al Islam Ngleses: bank soal 6 jenis, token ujian, autosave server, monitor sesi, dan rekap hasil \u2014 React + Vite + backend Google Apps Script + Sheets",
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2"
+  },
+  "name": "wwn-cbt-madrasah-80",
+  "private": true,
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite --port=3000 --host=0.0.0.0",
+    "lint": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "type": "module",
+  "version": "1.0.0"
+}
