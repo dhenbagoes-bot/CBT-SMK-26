@@ -1,4 +1,4 @@
-# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.2.1
+# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.2.2
 
 Aplikasi ujian digital (CBT) khusus untuk SMK Negeri 1 Juwangi.
 Siswa mengerjakan ujian langsung dari browser (laptop & HP), guru mengelola bank soal &
@@ -35,6 +35,13 @@ jaringan kini jelas, bukan mentah "Failed to fetch". **Wajib update backend
 untuk v1.2.1** (lihat "Update Backend" di bawah) — frontend v1.2.1 memanggil
 action baru yang belum ada di deployment backend v1.0.0. Data live tidak
 berubah; tidak perlu `initDatabase` ulang.
+
+**Yang baru di v1.2.2 (perbaikan parser file Excel):** pembaca ZIP (`bacaZip`)
+sempat memakai field ukuran yang salah sehingga file `.xlsx`/`.docx` asli
+hasil simpan Excel/LibreOffice (kompresi deflate) gagal dibaca — hanya file
+dari writer aplikasi sendiri (metode store) yang lolos. Kini memakai ukuran
+terkompresi yang benar + ada tes regresi dengan fixture deflate. Perbaikan
+hanya di frontend — **backend tidak perlu di-update lagi** (tetap versi 1.2.1).
 
 **Stack:** React 19 + Vite + TypeScript + Tailwind 4 (frontend, deploy di Vercel) •
 Google Apps Script + Google Sheets + Google Drive (backend, gratis, milik sekolah sendiri).

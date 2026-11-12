@@ -1,6 +1,7 @@
 // Uji util impor soal CBT (node assert, tanpa framework).
 // Jalankan: node test/impor-soal.test.ts  (butuh Node dengan type stripping, v22.6+/24)
 import assert from 'node:assert/strict';
+import { deflateRawSync } from 'node:zlib';
 import {
   CONTOH_SOAL,
   TE,
@@ -16,6 +17,7 @@ import {
   parseFileSoal,
   parseTeksBlokSoal,
   parseTxtSoal,
+  parseXlsxMapel,
   parseXlsxSiswa,
   parseXlsxSoal,
   rangkumParse,
@@ -247,6 +249,92 @@ const ITEM = {
   assert.equal(r3.valid.length, 1);
   assert.equal(r3.valid[0].soal, CONTOH_SOAL[0].soal);
   console.log('✓ parseFileSoal');
+}
+
+// --- 10. ZIP deflate (file asli Excel) — regresi v1.2.2 ---
+// bacaZip sempat membaca ukuran dari field ukuran ASLI (p+24) sehingga
+// DecompressionStream menerima byte sisa -> "trailing junk" untuk semua file
+// deflate. Fixture bawaan memakai metode store sehingga bug ini lolos.
+{
+  const CRC_TABEL: number[] = (() => {
+    const t: number[] = [];
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      t.push(c >>> 0);
+    }
+    return t;
+  })();
+  const crc32 = (buf: Uint8Array): number => {
+    let c = 0xffffffff;
+    for (const b of buf) c = CRC_TABEL[(c ^ b) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  /** Kemas ulang ZIP metode store menjadi metode deflate (seperti hasil simpan Excel). */
+  function kemasUlangDeflate(zipBuf: ArrayBuffer): ArrayBuffer {
+    const bytes = new Uint8Array(zipBuf);
+    const dv = new DataView(zipBuf);
+    const entris: { nama: string; data: Uint8Array }[] = [];
+    let p = 0;
+    while (p + 30 <= bytes.length && dv.getUint32(p, true) === 0x04034b50) {
+      const metode = dv.getUint16(p + 8, true);
+      const ukuran = dv.getUint32(p + 18, true);
+      const pNama = dv.getUint16(p + 26, true);
+      const pEkstra = dv.getUint16(p + 28, true);
+      const nama = TD.decode(bytes.subarray(p + 30, p + 30 + pNama));
+      const awal = p + 30 + pNama + pEkstra;
+      assert.equal(metode, 0, 'fixture harus metode store');
+      entris.push({ nama, data: bytes.slice(awal, awal + ukuran) });
+      p = awal + ukuran;
+    }
+    assert.ok(entris.length > 0, 'fixture kosong');
+    const tulis16 = (a: number[], v: number) => { a.push(v & 0xff, (v >> 8) & 0xff); };
+    const tulis32 = (a: number[], v: number) => { a.push(v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff, (v >> 24) & 0xff); };
+    const lokal: number[] = [];
+    const catat: { nama: Uint8Array; crc: number; cSize: number; uSize: number; off: number }[] = [];
+    for (const e of entris) {
+      const namaB = TE.encode(e.nama);
+      const comp = deflateRawSync(e.data);
+      const off = lokal.length;
+      tulis32(lokal, 0x04034b50); tulis16(lokal, 20); tulis16(lokal, 0); tulis16(lokal, 8);
+      tulis16(lokal, 0); tulis16(lokal, 0); tulis32(lokal, crc32(e.data));
+      tulis32(lokal, comp.length); tulis32(lokal, e.data.length);
+      tulis16(lokal, namaB.length); tulis16(lokal, 0);
+      for (const b of namaB) lokal.push(b);
+      for (const b of comp) lokal.push(b);
+      catat.push({ nama: namaB, crc: crc32(e.data), cSize: comp.length, uSize: e.data.length, off });
+    }
+    const offSentral = lokal.length;
+    const sentral: number[] = [];
+    for (const c of catat) {
+      tulis32(sentral, 0x02014b50); tulis16(sentral, 20); tulis16(sentral, 20);
+      tulis16(sentral, 0); tulis16(sentral, 8); tulis16(sentral, 0); tulis16(sentral, 0);
+      tulis32(sentral, c.crc); tulis32(sentral, c.cSize); tulis32(sentral, c.uSize);
+      tulis16(sentral, c.nama.length); tulis16(sentral, 0); tulis16(sentral, 0);
+      tulis16(sentral, 0); tulis16(sentral, 0); tulis32(sentral, 0); tulis32(sentral, c.off);
+      for (const b of c.nama) sentral.push(b);
+    }
+    const eocd: number[] = [];
+    tulis32(eocd, 0x06054b50); tulis16(eocd, 0); tulis16(eocd, 0);
+    tulis16(eocd, catat.length); tulis16(eocd, catat.length);
+    tulis32(eocd, sentral.length); tulis32(eocd, offSentral); tulis16(eocd, 0);
+    return new Uint8Array([...lokal, ...sentral, ...eocd]).buffer as ArrayBuffer;
+  }
+
+  const zipStore = buatXlsx([{ nama: 'Mapel', data: [['Nama', 'Jenjang'], ['Bahasa Indonesia', ''], ['Matematika', 'SMK']] }]).buffer as ArrayBuffer;
+  const zipDeflate = kemasUlangDeflate(zipStore);
+  const sheetB = await bacaZip(zipDeflate, 'xl/worksheets/sheet1.xml');
+  assert.ok(TD.decode(sheetB).includes('Bahasa Indonesia'), 'bacaZip deflate');
+  const r = await parseXlsxMapel(zipDeflate);
+  assert.equal(r.baris.length, 2);
+  assert.equal(r.valid.length, 2);
+  assert.equal(r.valid[0].nama, 'Bahasa Indonesia');
+  assert.equal(r.valid[1].nama, 'Matematika');
+  const zipSiswa = kemasUlangDeflate(buatXlsx([{ nama: 'Siswa', data: [['Nama', 'NIS', 'Kelas', 'Jenjang', 'Username', 'Password'], ['Ahmad', '123', '9A', '', '', '']] }]).buffer as ArrayBuffer);
+  const rs = await parseXlsxSiswa(zipSiswa);
+  assert.equal(rs.valid.length, 1);
+  assert.equal(rs.valid[0].nama, 'Ahmad');
+  console.log('✓ ZIP deflate (Excel) + parseXlsxMapel/Siswa');
 }
 
 console.log('\nSemua uji impor-soal lolos.');

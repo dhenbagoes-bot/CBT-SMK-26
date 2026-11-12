@@ -295,7 +295,13 @@ export async function bacaZip(buffer: ArrayBuffer, namaFile: string): Promise<Ui
   for (let i = 0; i < jumlah; i++) {
     if (bacaU32(dv, p) !== 0x02014b50) throw new Error('Direktori ZIP rusak.');
     const metode = bacaU16(dv, p + 10);
-    const ukuran = bacaU32(dv, p + 24);
+    // p+20 = ukuran TERKOMPRESI (p+24 = ukuran asli). Potongan data HARUS
+    // sepanjang ukuran terkompresi; memakai ukuran asli membuat DecompressionStream
+    // menerima byte sisa setelah akhir stream deflate -> error "trailing junk"
+    // untuk SEMUA file .xlsx/.docx asli Excel (metode deflate). File dari writer
+    // aplikasi sendiri (metode store) tidak kena karena kedua ukuran sama —
+    // itulah sebabnya bug ini lolos dari tes (v1.2.2).
+    const ukuran = bacaU32(dv, p + 20);
     const pNama = bacaU16(dv, p + 28);
     const pEkstra = bacaU16(dv, p + 30);
     const pKomen = bacaU16(dv, p + 32);
