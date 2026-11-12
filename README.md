@@ -1,6 +1,6 @@
-# CBT Madrasah Digital — `wwn-cbt-madrasah-80` v1.0.0
+# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.1.0
 
-Aplikasi ujian digital (CBT) untuk madrasah/sekolah.
+Aplikasi ujian digital (CBT) khusus untuk SMK Negeri 1 Juwangi.
 Siswa mengerjakan ujian langsung dari browser (laptop & HP), guru mengelola bank soal &
 paket ujian, menilai essay, memantau sesi live, dan melihat rekap hasil.
 
@@ -10,8 +10,15 @@ token ujian statis per ujian, autosave jawaban ke server + lanjut setelah reload
 (tutup tab = jeda, bukan batal), anti-bentrok jadwal, durasi standar yang dikelola
 admin, dan sheet baru `JawabanSiswa`.
 
+**Yang baru di v1.1.0:** aplikasi dikhususkan untuk **SMK Negeri 1 Juwangi**
+(identitas, judul, dan `schools.json`); target kelas pada paket ujian **diketik
+manual** (kelas baru dibuat otomatis); menu **Notifikasi WA dihapus** (kemampuan
+backend tetap ada tetapi tidak dipakai dari menu). Selain itu tidak ada perubahan
+perilaku — semua yang sudah berjalan dipertahankan. Backend tidak perlu di-deploy
+ulang untuk v1.1.0 (hanya 1 string default di `Kode.gs` yang berubah).
+
 **Stack:** React 19 + Vite + TypeScript + Tailwind 4 (frontend, deploy di Vercel) •
-Google Apps Script + Google Sheets + Google Drive (backend, gratis, milik madrasah sendiri).
+Google Apps Script + Google Sheets + Google Drive (backend, gratis, milik sekolah sendiri).
 
 ---
 
@@ -21,7 +28,7 @@ Google Apps Script + Google Sheets + Google Drive (backend, gratis, milik madras
 |---|---|
 | **Siswa** | Mengerjakan paket ujian (masukkan token ujian), jawaban tersimpan otomatis dan bisa dilanjutkan setelah reload, melihat hasil & pembahasan, dashboard analisis belajar sendiri |
 | **Guru** | Bank soal 6 jenis (tambah/ubah/hapus, unggah .txt/.docx/.xlsx, impor dari Google Form), paket ujian (mode manual/acak, token statis, anti-bentrok jadwal), **nilai essay manual**, monitor sesi live, rekap hasil + unduh Excel + cetak, **analisis kelas** (statistik, distribusi, butir soal), **laporan nilai PDF**, **notifikasi progres belajar WA** ke orang tua |
-| **Admin** | Semua fitur guru + kelola pengguna & impor siswa (.xlsx, termasuk No. WA orang tua), jenjang/mapel/kelas, pengaturan madrasah, KKM, **durasi standar ujian** & jeda gelombang, aturan anti-curang |
+| **Admin** | Semua fitur guru + kelola pengguna & impor siswa (.xlsx, termasuk No. WA orang tua), jenjang/mapel/kelas, pengaturan sekolah, KKM, **durasi standar ujian** & jeda gelombang, aturan anti-curang |
 
 **Aturan ujian (v1.0.0):**
 - **Autosave ke server** — jawaban dikirim ke sheet `JawabanSiswa` (debounce +
@@ -73,12 +80,12 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
 3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.0.0 ...`.
 4. Klik **Inisialisasi Database** — membuat 12 sheet + akun bawaan
    `admin`/`admin123` dan `guru`/`guru123`, 6 kelas seed (7A, 7B, 8A, 8B, 9A, 9B),
-   dan Pengaturan default (nama madrasah `MTs Al Islam Ngleses`, KKM 75,
+   dan Pengaturan default (nama sekolah `SMK Negeri 1 Juwangi`, KKM 75,
    durasi standar 60 menit, jeda gelombang 3 menit). Mapel **tidak** di-seed —
    admin mengisinya manual (lihat langkah D.3). **WAJIB ganti kata sandi
    bawaan setelah login pertama** (langkah D.2).
 
-> Alternatif multi-madrasah: isi `apiUrl` di `public/schools.json`
+> Alternatif multi-sekolah: isi `apiUrl` di `public/schools.json`
 > (format sama seperti aplikasi bel/jurnal TTS), lalu buka dengan `?school=<id>`.
 
 ## C. Upload ke GitHub & Deploy Vercel (lewat web, tanpa git CLI)
@@ -106,7 +113,7 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
 
 ## D. Konfigurasi Awal (login sebagai admin)
 
-1. **Pengaturan** → isi identitas madrasah, unggah logo, atur:
+1. **Pengaturan** → isi identitas sekolah, unggah logo, atur:
    - *Ambang peringatan* (default 3),
    - *KKM* — Kriteria Ketuntasan Minimal (default 75), dipakai badge Tuntas/Belum
      di analisis & laporan,
@@ -122,17 +129,15 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
 3. **Kelola Data → Jenjang/Mapel/Kelas**: sesuaikan (bawaan: MTs/SMP & MA/SMA/SMK
    + 6 kelas 7A–9B). **Daftar mapel diisi manual** (tambah satu per satu lewat
    form, edit, hapus) atau impor Excel — jangan hardcode; tidak ada mapel seed.
-   Untuk MTs Al Islam Ngleses: isi **17–20 mapel** sesuai kurikulum.
+   Untuk SMK Negeri 1 Juwangi: isi **17–20 mapel** sesuai kurikulum. Jenjang
+   dan kelas bawaan bisa diubah/dihapus di Kelola Data sesuai kebutuhan SMK
+   (mis. jenjang `SMK`, kelas `X AKL 1`, `XI MM 2`, dst.).
 4. **Kelola Data → Impor Siswa**: unduh template `.xlsx`, isi (Nama, NIS, Kelas wajib;
-   password awal = NIS bila dikosongkan; **No. WA Orang Tua** diisi bila ingin
-   kirim notifikasi progres belajar via WhatsApp), unggah → pratinjau → Impor.
+   password awal = NIS bila dikosongkan; **No. WA Orang Tua** opsional, data kontak
+   orang tua), unggah → pratinjau → Impor.
    Untuk rombongan besar, impor **per batch 100 siswa** agar tidak putus di tengah jalan.
-5. **(Opsional) Notifikasi WhatsApp** → menu **Notifikasi**:
-   - Isi *Endpoint*, *API Key*, dan *Template pesan* dari gateway WA madrasah
-     (mis. Fonnte/Wablas — akun & nomor gateway milik madrasah sendiri),
-     centang *Aktif*, klik **Simpan**.
-   - Bila belum dikonfigurasi, pengiriman otomatis **dilewati** (tidak error)
-     dan tercatat di riwayat.
+   Catatan: menu **Notifikasi WhatsApp dihapus** sejak v1.1.0 — kolom No. WA tetap
+   tersimpan sebagai data siswa, tetapi tidak ada pengiriman notifikasi dari menu.
 
 ## E. Alur Kerja Guru (operasional harian)
 
@@ -143,7 +148,9 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
    Isian Singkat / Essay), bobot, mapel, kelas, dan tingkat kesulitan
    (Mudah/Sedang/Sulit).
 2. **Paket Ujian** → *Buat Paket*: nama, jenjang, mapel, target kelas
-   (kosongkan = semua kelas), mode **Manual** (centang soal dari bank) atau
+   **diketik manual** (nama kelas dipisah koma, cth. `X AKL 1, X AKL 2`;
+   kosongkan = semua kelas; kelas yang belum ada dibuat otomatis di jenjang
+   tersebut), mode **Manual** (centang soal dari bank) atau
    **Acak** (N soal diambil acak dari bank), durasi (5–300 menit; nilai awal =
    durasi standar), jendela mulai–selesai, **token ujian statis**,
    opsi acak soal/opsi, tampil skor/pembahasan, aktif.
@@ -164,15 +171,12 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
 3. **Monitor**: pantau sesi live (auto-refresh 30 detik) — nama, status, sisa waktu,
    peringatan. Tombol **Reset** menghapus sesi+hasil+jawaban autosave siswa agar bisa mengulang.
 4. **Hasil**: pilih paket → rekap (Selesai/Mengerjakan/Dibatalkan/Belum mulai) →
-   **Unduh Excel** atau **Cetak** berkop madrasah.
+   **Unduh Excel** atau **Cetak** berkop sekolah.
 5. **Analisis Kelas**: pilih paket + kelas → lihat rata-rata, median, ketuntasan
    klasikal vs KKM, distribusi nilai, 5 siswa teratas/terbawah, dan **analisis
    butir soal** (tingkat kesukaran: Sangat Mudah–Sangat Sukar + daya beda).
 6. **Laporan**: pilih paket (+ kelas opsional) → pratinjau laporan berkop →
    **Cetak / Simpan PDF**.
-7. **Notifikasi**: pilih target (Semua / per Kelas / manual) → **Kirim** progres
-   belajar (rata-rata nilai, jumlah ujian, mapel terlemah) via WA ke nomor orang
-   tua. Riwayat pengiriman tercatat otomatis.
 
 ## F. Uji End-to-End (wajib sebelum dipakai)
 
@@ -197,7 +201,7 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
 - **Sesi login**: admin/guru otomatis **tetap masuk** (token + profil tersimpan di
   perangkat, kedaluwarsa 7 hari); sesi **siswa hanya di memori** (hilang saat
   tab ditutup) — demi anti-curang. Yang boleh di `localStorage` hanya URL
-  backend, pilihan madrasah, dan sesi tersimpan admin/guru.
+  backend, pilihan sekolah, dan sesi tersimpan admin/guru.
 - **Nilai resmi selalu dihitung server** (`nilai = round(skor/totalBobot*100)`,
   skor boleh pecahan untuk PG Kompleks/Menjodohkan sebagian).
   Util `hitungNilaiSkor` di frontend hanya untuk pratinjau/test.

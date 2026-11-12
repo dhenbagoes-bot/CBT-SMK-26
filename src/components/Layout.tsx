@@ -14,7 +14,6 @@ import {
   Moon,
   Package,
   PenLine,
-  Send,
   Settings,
   Sun,
   Users,
@@ -70,7 +69,6 @@ export const SEMUA_NAV: NavItem[] = [
   { key: 'analisis-saya', label: 'Analisis Saya', icon: <LineChart className="h-5 w-5" />, peran: ['siswa'] },
   { key: 'analisis-kelas', label: 'Analisis Kelas', icon: <BarChart3 className="h-5 w-5" />, peran: ['admin', 'guru'] },
   { key: 'laporan', label: 'Laporan', icon: <FileText className="h-5 w-5" />, peran: ['admin', 'guru'] },
-  { key: 'notifikasi', label: 'Notifikasi', icon: <Send className="h-5 w-5" />, peran: ['admin', 'guru'] },
   { key: 'kelola-data', label: 'Kelola Data', icon: <Users className="h-5 w-5" />, peran: ['admin'] },
   { key: 'pengaturan', label: 'Pengaturan', icon: <Settings className="h-5 w-5" />, peran: ['admin'] },
   { key: 'konfigurasi', label: 'Konfigurasi', icon: <Database className="h-5 w-5" /> },
@@ -160,7 +158,7 @@ export function Layout({
           <div className="min-w-0 flex-1">
             {modeUjian ? (
               <p className="truncate text-sm font-bold sm:text-base">
-                {namaSekolah || sekolah?.nama || 'CBT Madrasah Digital'}
+                {namaSekolah || sekolah?.nama || 'CBT Digital'}
               </p>
             ) : (
               <button
@@ -168,7 +166,7 @@ export function Layout({
                 className="block max-w-full truncate text-left text-sm font-bold leading-tight hover:underline sm:text-base"
                 title="Ganti sekolah"
               >
-                {namaSekolah || sekolah?.nama || 'CBT Madrasah Digital'} ▾
+                {namaSekolah || sekolah?.nama || 'CBT Digital'} ▾
               </button>
             )}
             <p className="font-mono-num truncate text-[11px] text-emerald-100 sm:text-xs">{jam}</p>

@@ -16,9 +16,9 @@ import {
   thCls,
 } from '../components/ui';
 import { Dices } from 'lucide-react';
-import { deletePaket, savePaket } from '../services/api';
+import { deletePaket, saveKelas, savePaket } from '../services/api';
 import { formatTanggalWaktu } from '../utils/format';
-import { buatTokenAcak, cekBentrokPaket } from '../utils/penilaian';
+import { buatTokenAcak, cekBentrokPaket, normalisasiNamaKelas, uraiNamaKelas } from '../utils/penilaian';
 import type { ModeSoal, Paket } from '../types';
 import type { PageProps } from './PageProps';
 
@@ -27,7 +27,9 @@ interface FormPaket {
   nama: string;
   jenjangId: string;
   mapelId: string;
-  kelasIds: string[];
+  /** Target kelas diketik MANUAL (nama dipisah koma). Kosong = semua kelas jenjang ini.
+   *  Saat simpan, nama dicocokkan ke data Kelas; nama baru dibuat otomatis. */
+  kelasManual: string;
   modeSoal: ModeSoal;
   soalIds: string[];
   jumlahAcak: number;
@@ -49,7 +51,7 @@ const FORM_KOSONG: FormPaket = {
   nama: '',
   jenjangId: '',
   mapelId: '',
-  kelasIds: [],
+  kelasManual: '',
   modeSoal: 'manual',
   soalIds: [],
   jumlahAcak: 10,
@@ -86,10 +88,21 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
     () => data.mapel.filter((m) => !form.jenjangId || m.jenjangId === form.jenjangId),
     [data.mapel, form.jenjangId]
   );
-  const kelasForm = useMemo(
-    () => data.kelas.filter((k) => !form.jenjangId || k.jenjangId === form.jenjangId),
-    [data.kelas, form.jenjangId]
-  );
+  /** ID kelas hasil pencocokan nama yang diketik manual dengan data Kelas
+   *  (jenjang sama, abaikan huruf besar/kecil & spasi berlebih). Nama yang
+   *  belum ada tidak punya ID di sini — dibuat saat simpan. Kosong = semua kelas. */
+  const kelasIdsEfektif = useMemo(() => {
+    const namaDiketik = uraiNamaKelas(form.kelasManual);
+    if (namaDiketik.length === 0) return [] as string[];
+    const ids: string[] = [];
+    for (const nama of namaDiketik) {
+      const cocok = data.kelas.find(
+        (k) => k.jenjangId === form.jenjangId && normalisasiNamaKelas(k.nama) === normalisasiNamaKelas(nama),
+      );
+      if (cocok) ids.push(cocok.id);
+    }
+    return ids;
+  }, [data.kelas, form.jenjangId, form.kelasManual]);
   const bankForm = useMemo(() => {
     const q = cariSoal.trim().toLowerCase();
     return data.bankSoal
@@ -109,7 +122,10 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
       nama: p.nama,
       jenjangId: p.jenjangId,
       mapelId: p.mapelId,
-      kelasIds: p.kelasIds || [],
+      kelasManual: (p.kelasIds || [])
+        .map((id) => data.kelas.find((k) => k.id === id)?.nama || '')
+        .filter(Boolean)
+        .join(', '),
       modeSoal: p.modeSoal,
       soalIds: p.soalIds || [],
       jumlahAcak: p.jumlahAcak || 10,
@@ -151,13 +167,35 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
 
     setSimpanLoading(true);
     try {
+      // Selesaikan dulu target kelas manual: cocokkan tiap nama ke data Kelas
+      // (jenjang sama); nama yang belum ada dibuat otomatis sebagai Kelas baru.
+      const kelasIds: string[] = [];
+      for (const nama of uraiNamaKelas(form.kelasManual)) {
+        const cocok = data.kelas.find(
+          (k) => k.jenjangId === form.jenjangId && normalisasiNamaKelas(k.nama) === normalisasiNamaKelas(nama),
+        );
+        if (cocok) {
+          kelasIds.push(cocok.id);
+        } else {
+          try {
+            const baru = await saveKelas({ jenjangId: form.jenjangId, nama });
+            kelasIds.push(baru.id);
+          } catch (errKelas) {
+            // Data kelas lokal mungkin kedaluwarsa (kelas sudah dibuat orang lain):
+            // segarkan data agar percobaan simpan berikutnya cocok, lalu sampaikan galatnya.
+            await refreshData().catch(() => {});
+            throw errKelas;
+          }
+        }
+      }
+
       const { id, ...rest } = form;
       await savePaket({
         ...(id ? { id } : {}),
         nama: rest.nama.trim(),
         jenjangId: rest.jenjangId,
         mapelId: rest.mapelId,
-        kelasIds: rest.kelasIds,
+        kelasIds,
         modeSoal: rest.modeSoal,
         soalIds: rest.modeSoal === 'manual' ? rest.soalIds : [],
         jumlahAcak: rest.modeSoal === 'acak' ? rest.jumlahAcak : 0,
@@ -203,14 +241,14 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
     return cekBentrokPaket(
       {
         jenjangId: form.jenjangId,
-        kelasIds: form.kelasIds,
+        kelasIds: kelasIdsEfektif,
         mulai: dtKeWire(form.mulai),
         selesai: dtKeWire(form.selesai),
       },
       data.paket,
       form.id
     );
-  }, [formBuka, form, data.paket]);
+  }, [formBuka, form, data.paket, kelasIdsEfektif]);
 
   return (
     <div>
@@ -294,7 +332,7 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
             </Field>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Jenjang">
-                <SelectInput value={form.jenjangId} onChange={(e) => { ubah('jenjangId', e.target.value); ubah('mapelId', ''); ubah('kelasIds', []); ubah('soalIds', []); }}>
+                <SelectInput value={form.jenjangId} onChange={(e) => { ubah('jenjangId', e.target.value); ubah('mapelId', ''); ubah('kelasManual', ''); ubah('soalIds', []); }}>
                   <option value="">— Pilih —</option>
                   {data.jenjang.map((j) => (
                     <option key={j.id} value={j.id}>{j.nama}</option>
@@ -311,31 +349,17 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
               </Field>
             </div>
 
-            <div>
-              <span className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Target kelas (kosongkan = semua kelas jenjang ini)
-              </span>
-              {kelasForm.length === 0 ? (
-                <p className="text-xs text-slate-400">Pilih jenjang dulu.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {kelasForm.map((k) => (
-                    <button
-                      key={k.id}
-                      type="button"
-                      onClick={() => ubah('kelasIds', toggle(form.kelasIds, k.id))}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                        form.kelasIds.includes(k.id)
-                          ? 'border-violet-600 bg-violet-600 text-white'
-                          : 'border-slate-300 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
-                      {k.nama}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <Field label="Target kelas (ketik manual)">
+              <TextInput
+                value={form.kelasManual}
+                onChange={(e) => ubah('kelasManual', e.target.value)}
+                placeholder="cth: X AKL 1, X AKL 2 (kosongkan = semua kelas jenjang ini)"
+              />
+              <p className="mt-1 text-xs text-slate-400">
+                Ketik nama kelas dipisah koma. Kelas yang belum ada akan dibuat otomatis di jenjang
+                ini saat paket disimpan. Kosongkan bila paket berlaku untuk semua kelas jenjang ini.
+              </p>
+            </Field>
 
             <div>
               <span className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">Mode pengambilan soal</span>

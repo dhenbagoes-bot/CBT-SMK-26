@@ -1,4 +1,4 @@
-# Kontrak API — Backend wwn-cbt-madrasah-80 (CBT Madrasah Digital)
+# Kontrak API — Backend wwn-cbt-madrasah-80 (CBT Digital — SMK Negeri 1 Juwangi)
 
 Backend: Google Apps Script + Google Sheets + Google Drive.
 Versi: `1.0.0` (`APP_VERSION` di `backend/Kode.gs`).
@@ -128,7 +128,7 @@ Status hasil vs KKM (default 75, dari Pengaturan):
 
 ## Seed `initDatabase` (publik, idempotent)
 
-- Pengaturan: `namaSekolah:'MTs Al Islam Ngleses'`, `alamatSekolah:''`,
+- Pengaturan: `namaSekolah:'SMK Negeri 1 Juwangi'`, `alamatSekolah:''`,
   `telepon:''`, `namaKepala:''`, `logoUrl:''`,
   `ambangPeringatan:'3'`, `wajibFullscreen:'1'`, `izinkanUlangSetelahBatal:'0'`,
   `kkm:'75'`, `durasiStandar:'60'`, `jedaGelombang:'3'`,
@@ -162,7 +162,7 @@ dikirim ke siswa**:
 
 ```json
 { "success": true, "data": {
-  "pengaturan": { "namaSekolah":"MTs Al Islam Ngleses", "alamatSekolah":"", "telepon":"", "namaKepala":"", "logoUrl":"", "ambangPeringatan":3, "wajibFullscreen":1, "izinkanUlangSetelahBatal":0, "kkm":75, "durasiStandar":60, "jedaGelombang":3 },
+  "pengaturan": { "namaSekolah":"SMK Negeri 1 Juwangi", "alamatSekolah":"", "telepon":"", "namaKepala":"", "logoUrl":"", "ambangPeringatan":3, "wajibFullscreen":1, "izinkanUlangSetelahBatal":0, "kkm":75, "durasiStandar":60, "jedaGelombang":3 },
   "jenjang": [{ "id":"", "nama":"" }],
   "mapel": [{ "id":"", "jenjangId":"", "nama":"" }],
   "kelas": [{ "id":"", "jenjangId":"", "nama":"" }],

@@ -1285,7 +1285,7 @@ export function unduhTemplateXlsxSiswa(): void {
     ['2. Nama, NIS, dan Kelas wajib. Kelas harus sudah ada di Kelola Data > Kelas.'],
     ['3. Jenjang opsional bila nama kelas unik.'],
     ['4. Username & Password opsional: kosong = username NIS, password NIS.'],
-    ['5. NoHP = No. WA orang tua (opsional, untuk notifikasi progres belajar).'],
+    ['5. NoHP = No. WA orang tua (opsional).'],
     ['6. NIS yang sama dengan data lama akan MEMPERBARUI data tersebut.'],
     ['7. Simpan, lalu unggah lewat Kelola Data > tab Impor Siswa.'],
   ];

@@ -5,7 +5,7 @@ import { savePengaturan, uploadLogo } from '../services/api';
 import type { Pengaturan as PengaturanTipe } from '../types';
 import type { PageProps } from './PageProps';
 
-export default function Pengaturan({ pengaturan, toast, refreshData, pindah }: PageProps) {
+export default function Pengaturan({ pengaturan, toast, refreshData }: PageProps) {
   const [form, setForm] = useState<PengaturanTipe>(pengaturan);
   const [loading, setLoading] = useState(false);
   const [unggahLoading, setUnggahLoading] = useState(false);
@@ -181,7 +181,7 @@ export default function Pengaturan({ pengaturan, toast, refreshData, pindah }: P
               onChange={(e) => ubah('kkm', parseInt(e.target.value, 10) || 0)}
             />
             <p className="mt-1 text-xs text-slate-400">
-              Dipakai sebagai ambang Tuntas/Belum Tuntas di Analisis, Laporan, dan notifikasi progres.
+              Dipakai sebagai ambang Tuntas/Belum Tuntas di Analisis dan Laporan.
             </p>
           </Field>
           <Field label="Durasi standar ujian (menit)">
@@ -211,18 +211,6 @@ export default function Pengaturan({ pengaturan, toast, refreshData, pindah }: P
             </p>
           </Field>
         </div>
-      </Card>
-
-      <Card className="mb-4">
-        <h2 className="mb-3 font-bold text-slate-900 dark:text-slate-100">Notifikasi WhatsApp</h2>
-        <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
-          Konfigurasi endpoint WA &amp; template pesan, pengiriman notifikasi progres belajar ke
-          orang tua, dan riwayat pengiriman diatur di halaman{' '}
-          <b>Notifikasi</b>.
-        </p>
-        <Button varian="sekunder" onClick={() => pindah('notifikasi')}>
-          Buka Halaman Notifikasi →
-        </Button>
       </Card>
 
       <Button onClick={simpan} loading={loading} className="w-full">

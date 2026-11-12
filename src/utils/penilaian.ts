@@ -20,6 +20,29 @@ export function uraiKunciPgk(kunci: string): Set<string> {
   );
 }
 
+/** Kunci pembanding nama kelas: huruf kecil + spasi tunggal (cth. "X  AKL 1" -> "x akl 1"). */
+export function normalisasiNamaKelas(nama: string): string {
+  return (nama || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/** Urai daftar nama kelas yang diketik manual di form paket: pisah koma,
+ *  rapikan spasi, buang yang kosong, hilangkan duplikat (abaikan huruf
+ *  besar/kecil, ejaan pertama yang dipertahankan).
+ *  Contoh: "X AKL 1, x akl 1 , XI MM 2" -> ["X AKL 1", "XI MM 2"]. */
+export function uraiNamaKelas(teks: string): string[] {
+  const hasil: string[] = [];
+  const sudah = new Set<string>();
+  for (const bagian of (teks || '').split(',')) {
+    const nama = bagian.replace(/\s+/g, ' ').trim();
+    if (!nama) continue;
+    const kunci = nama.toLowerCase();
+    if (sudah.has(kunci)) continue;
+    sudah.add(kunci);
+    hasil.push(nama);
+  }
+  return hasil;
+}
+
 /** Urai jawaban jodoh '{"0":1,"1":0}' -> Map<number, number>. */
 export function uraiJawabanJodoh(jawaban: string): Map<number, number> {
   const peta = new Map<number, number>();

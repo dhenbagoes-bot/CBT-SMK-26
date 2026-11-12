@@ -116,7 +116,7 @@ HEADERS[SHEET_NOTIFIKASI] = ['ID', 'Waktu', 'Username', 'NamaSiswa', 'NoHP',
   'Jenis', 'Isi', 'Status'];
 
 var DEFAULT_PENGATURAN = [
-  ['namaSekolah', 'MTs Al Islam Ngleses'],
+  ['namaSekolah', 'SMK Negeri 1 Juwangi'],
   ['alamatSekolah', ''],
   ['telepon', ''],
   ['namaKepala', ''],

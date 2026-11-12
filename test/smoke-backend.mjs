@@ -237,7 +237,7 @@ eq(sheetRows('LogAktivitas')[0], ['ID', 'Waktu', 'Username', 'SesiID', 'Jenis', 
 {
   const get = (k) => { const f = sheetRows('Pengaturan').find((x) => x[0] === k); return f ? f[1] : undefined; };
   eq([get('namaSekolah'), get('ambangPeringatan'), get('wajibFullscreen'), get('izinkanUlangSetelahBatal'), get('logoUrl'), get('kkm'), get('durasiStandar'), get('jedaGelombang'), get('waAktif'), get('waEndpoint'), get('waApiKey')],
-    ['MTs Al Islam Ngleses', '3', '1', '0', '', '75', '60', '3', 'false', '', ''], 'seed 15 kunci pengaturan sesuai kontrak');
+    ['SMK Negeri 1 Juwangi', '3', '1', '0', '', '75', '60', '3', 'false', '', ''], 'seed 15 kunci pengaturan sesuai kontrak');
   ok((get('waTemplateProgres') || '').includes('{nama}') && (get('waTemplateProgres') || '').includes('{mapelLemah}'), 'seed template WA berisi placeholder');
   const jenjang = sheetRows('Jenjang').slice(1).map((x) => x[1]);
   eq(jenjang, ['MTs/SMP', 'MA/SMA/SMK'], 'seed 2 jenjang');

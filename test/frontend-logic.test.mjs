@@ -21,10 +21,12 @@ import {
   hitungNilaiDenganId,
   kelompokPaketPerHari,
   normalisasiIsian,
+  normalisasiNamaKelas,
   skorSoal,
   sudahDijawab,
   uraiJawabanJodoh,
   uraiKunciPgk,
+  uraiNamaKelas,
 } from './dist-test/penilaian.js';
 
 /** PRNG deterministik (mulberry32) agar uji acak dapat diulang. */
@@ -294,6 +296,17 @@ uji('uraiKunciPgk', () => {
   assert.deepEqual([...uraiKunciPgk('A,C')], ['A', 'C']);
   assert.deepEqual([...uraiKunciPgk(' a , b ')], ['A', 'B']);
   assert.equal(uraiKunciPgk('').size, 0);
+});
+
+// --- 19. uraiNamaKelas + normalisasiNamaKelas (kelas manual form paket, v1.1.0) ---
+uji('uraiNamaKelas', () => {
+  assert.deepEqual(uraiNamaKelas('X AKL 1, X AKL 2'), ['X AKL 1', 'X AKL 2']);
+  assert.deepEqual(uraiNamaKelas('X AKL 1, x akl 1 , XI MM 2'), ['X AKL 1', 'XI MM 2']);
+  assert.deepEqual(uraiNamaKelas('  X  AKL 1 ,, , XI MM 2 '), ['X AKL 1', 'XI MM 2']);
+  assert.deepEqual(uraiNamaKelas(''), []);
+  assert.deepEqual(uraiNamaKelas(' , , '), []);
+  assert.equal(normalisasiNamaKelas('X  AKL 1'), 'x akl 1');
+  assert.equal(normalisasiNamaKelas(' XI MM 2 '), 'xi mm 2');
 });
 
 console.log(`\n${lolos} lolos, ${gagal} gagal.`);

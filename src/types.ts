@@ -256,7 +256,6 @@ export type PageKey =
   | 'analisis-saya'
   | 'analisis-kelas'
   | 'laporan'
-  | 'notifikasi'
   | 'kelola-data'
   | 'pengaturan'
   | 'konfigurasi'

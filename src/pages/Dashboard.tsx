@@ -11,8 +11,8 @@ export default function Dashboard({ data, user, pindah }: PageProps) {
     return (
       <div className="mx-auto max-w-2xl">
         <PageHeader
-          judul={data.pengaturan.namaSekolah || 'CBT Madrasah Digital'}
-          subjudul="Sistem ujian online MTs Al Islam Ngleses — PH, PTS, PAS, Ujian Madrasah, dan Try Out."
+          judul={data.pengaturan.namaSekolah || 'CBT Digital'}
+          subjudul="Sistem ujian online SMK Negeri 1 Juwangi — PH, PTS, PAS, Ujian Sekolah, dan Try Out."
         />
         <Card className="text-center">
           <div className="py-6 text-6xl">🎓</div>
@@ -108,7 +108,7 @@ export default function Dashboard({ data, user, pindah }: PageProps) {
     <div>
       <PageHeader
         judul={`Dasbor ${peran === 'admin' ? 'Admin' : 'Guru'}`}
-        subjudul={data.pengaturan.namaSekolah || 'CBT Madrasah Digital'}
+        subjudul={data.pengaturan.namaSekolah || 'CBT Digital'}
       />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard ikon={<BookOpen className="h-6 w-6" />} label="Bank Soal" nilai={String(data.bankSoal.length)} warna="biru" />

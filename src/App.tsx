@@ -11,7 +11,6 @@ import Hasil from './pages/Hasil';
 import AnalisisSaya from './pages/AnalisisSaya';
 import AnalisisKelas from './pages/AnalisisKelas';
 import Laporan from './pages/Laporan';
-import Notifikasi from './pages/Notifikasi';
 import KelolaData from './pages/KelolaData';
 import Pengaturan from './pages/Pengaturan';
 import Konfigurasi from './pages/Konfigurasi';
@@ -33,7 +32,7 @@ import { normalisasiSoalBank } from './types';
 const LS_SCHOOL = 'wwn-cbt-madrasah-80.schoolId';
 
 const PENGATURAN_DEFAULT: PengaturanTipe = {
-  namaSekolah: 'MTs AL ISLAM NGLESES',
+  namaSekolah: 'SMK NEGERI 1 JUWANGI',
   alamatSekolah: 'Juwangi, Boyolali',
   telepon: '',
   namaKepala: '',
@@ -291,7 +290,7 @@ export default function App() {
   }, []);
 
   // ---- hak akses halaman ----
-  const butuhGuru: PageKey[] = ['bank-soal', 'paket', 'monitor', 'analisis-kelas', 'laporan', 'notifikasi'];
+  const butuhGuru: PageKey[] = ['bank-soal', 'paket', 'monitor', 'analisis-kelas', 'laporan'];
   const bolehGuru = !user || user.peran === 'guru' || user.peran === 'admin';
   const butuhLogin = (page === 'hasil' || page === 'ujian' || page === 'analisis-saya' || butuhGuru.includes(page) || page === 'kelola-data' || page === 'pengaturan') && !user;
   const butuhAdmin = (page === 'kelola-data' || page === 'pengaturan') && user?.peran !== 'admin';
@@ -342,8 +341,6 @@ export default function App() {
         return <AnalisisKelas {...props} />;
       case 'laporan':
         return <Laporan {...props} />;
-      case 'notifikasi':
-        return <Notifikasi {...props} />;
       case 'kelola-data':
         return <KelolaData {...props} />;
       case 'pengaturan':

@@ -301,7 +301,7 @@ function TabPengguna({ data, toast, refreshData }: Pick<PageProps, 'data' | 'toa
                     placeholder="cth: 081234567890"
                   />
                   <p className="mt-1 text-xs text-slate-400">
-                    Dipakai untuk notifikasi progres belajar via WhatsApp.
+                    Nomor WhatsApp orang tua siswa (opsional).
                   </p>
                 </Field>
                 <div className="grid gap-3 sm:grid-cols-2">
