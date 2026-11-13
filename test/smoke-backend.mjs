@@ -264,8 +264,8 @@ eq(sheetRows('Pengaturan').filter((x) => x[0] === 'namaSekolah').length, 1, 'kun
 
 console.log('\n[2] ping, doGet, aksi tak dikenal, LockService v1.1.0 (fine-grained)');
 r = post('ping');
-ok(r.success && r.data.version === '1.2.3' && !!r.data.waktu, 'ping -> version + waktu');
-eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.2.3' } }, 'doGet -> info service');
+ok(r.success && r.data.version === '1.2.4' && !!r.data.waktu, 'ping -> version + waktu');
+eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.2.4' } }, 'doGet -> info service');
 r = post('aksiTakDikenal');
 ok(!r.success && r.message === 'Aksi tidak dikenal: aksiTakDikenal', 'aksi tak dikenal -> message sesuai kontrak');
 // v1.1.0: kunci global dihapus — aksi BACA tidak boleh menyentuh LockService sama sekali
@@ -689,6 +689,7 @@ const fakeFormApp = {
   ItemType: { MULTIPLE_CHOICE: 'MULTIPLE_CHOICE', TEXT: 'TEXT', PARAGRAPH_TEXT: 'PARAGRAPH_TEXT' },
   _forms: { form123: fakeForm, form456: fakeForm2 },
   openById(id) {
+    if (id === 'noperm') throw new Error('You do not have permission to access the requested document.');
     const f = this._forms[id];
     if (!f) throw new Error('Form not found: ' + id);
     return f;
@@ -731,6 +732,9 @@ r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'https://docs
 eq([r.data.imported, r.data.dilewati.length], [0, 1], 'impor ulang via /d/e/: imported=0 (dedupe)');
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'tidakada', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
 ok(!r.success && /tidak ditemukan atau tidak dapat diakses/i.test(r.message), 'form id tak dikenal -> error');
+ok(/Detail: Form not found/i.test(r.message), 'error menyertakan detail teknis');
+r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'noperm', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
+ok(!r.success && /authorizeFormsAccess/i.test(r.message), 'error izin -> pesan mengarahkan otorisasi (v1.2.4)');
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: '', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
 ok(!r.success && /wajib diisi/i.test(r.message), 'formIdOrUrl kosong ditolak');
 

@@ -66,7 +66,7 @@
  *    SEGERA ganti kata sandi setelah inisialisasi!
  */
 
-var APP_VERSION = '1.2.3';
+var APP_VERSION = '1.2.4';
 
 // ============================================================
 // KONFIGURASI SHEET (satu sumber kebenaran untuk nama & header)
@@ -1873,7 +1873,15 @@ function actionImportSoalDariForm(ss, user, p) {
     try {
       form = FormApp.openById(formId);
     } catch (e0) {
-      return { success: false, message: 'Google Form tidak ditemukan atau tidak dapat diakses.' };
+      // v1.2.4: bedakan penyebabnya agar tidak tebak-tebakan — error izin/
+      // otorisasi (scope Forms belum disetujui / akun tak punya akses ke form)
+      // vs form memang tidak ditemukan. Detail teknis mentah disertakan
+      // (dipotong) agar penyebab aslinya terlihat di toast.
+      var detail = asString(e0 && e0.message).slice(0, 100);
+      if (/permission|authorization|otorisasi|izin/i.test(detail)) {
+        return { success: false, message: 'Izin Google Forms belum diberikan atau akun ini tidak punya akses ke form tersebut. Buka editor Apps Script, jalankan fungsi "authorizeFormsAccess", setujui izinnya, dan pastikan form bisa dibuka akun yang sama. (Detail: ' + detail + ')' };
+      }
+      return { success: false, message: 'Google Form tidak ditemukan atau tidak dapat diakses. Periksa URL/ID form dan pastikan form dibagikan ke akun yang mendeploy backend. (Detail: ' + detail + ')' };
     }
 
     var items = form.getItems();
