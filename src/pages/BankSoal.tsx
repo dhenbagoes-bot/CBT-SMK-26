@@ -749,6 +749,7 @@ function ImporSoalModal({
   const [progresImpor, setProgresImpor] = useState('');
   const [formUrl, setFormUrl] = useState('');
   const [formLoading, setFormLoading] = useState(false);
+  const [hasilForm, setHasilForm] = useState<{ imported: number; dilewati: { judul: string; alasan: string }[] } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const mapelPilih = mapel.filter((m) => !jenjangId || m.jenjangId === jenjangId);
@@ -837,12 +838,17 @@ function ImporSoalModal({
   const imporDariForm = async () => {
     if (!formUrl.trim()) return toast('Tempel URL atau ID Google Form.', 'error');
     if (!jenjangId || !mapelId) return toast('Pilih jenjang dan mapel tujuan.', 'error');
+    if (/\/d\/e\//.test(formUrl.trim())) {
+      return toast('Link publikasi (/d/e/...) tidak bisa dibaca. Buka form di editor, salin URL edit (.../edit), lalu tempel di sini.', 'error');
+    }
     setFormLoading(true);
+    setHasilForm(null);
     try {
       const r = await importSoalDariForm(formUrl.trim(), jenjangId, mapelId);
+      setHasilForm(r);
       toast(`Impor dari Google Form: ${r.imported} soal masuk${r.dilewati.length ? `, ${r.dilewati.length} dilewati.` : '.'}`, 'sukses');
       await refreshData();
-      onTutup();
+      if (r.dilewati.length === 0) onTutup();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Impor dari Google Form gagal.', 'error');
     } finally {
@@ -963,9 +969,13 @@ function ImporSoalModal({
       ) : (
         <div className="space-y-4">
           <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-            Impor membaca soal pilihan ganda dari Google Form (mode kuis — kunci diambil dari jawaban
-            benar). Soal tanpa kunci yang jelas akan dilewati. Backend perlu otorisasi Forms
-            (<code>authorizeFormsAccess</code>) — lihat README.
+            Impor membaca soal dari Google Form (mode kuis — kunci diambil dari jawaban benar).
+            Yang terbaca: pilihan ganda, kotak centang (menjadi PG Kompleks), dropdown (menjadi
+            pilihan ganda), dan paragraf (menjadi esai, dinilai manual). Isian singkat, petak,
+            skala, dan tanggal/waktu dilewati karena kuncinya tidak bisa dibaca Google — tambahkan
+            lewat Bank Soal atau template Excel. Tempel URL EDIT form (.../edit), bukan link
+            publikasi (/d/e/...). Backend perlu otorisasi Forms (<code>authorizeFormsAccess</code>) —
+            lihat README.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Jenjang tujuan">
@@ -987,7 +997,7 @@ function ImporSoalModal({
           <Field label="URL atau ID Google Form">
             <TextInput
               value={formUrl}
-              onChange={(e) => setFormUrl(e.target.value)}
+              onChange={(e) => { setFormUrl(e.target.value); setHasilForm(null); }}
               placeholder="https://docs.google.com/forms/d/1AbC.../edit  atau  1AbC..."
             />
           </Field>
@@ -996,6 +1006,20 @@ function ImporSoalModal({
               Impor dari Google Form
             </Button>
           </div>
+          {hasilForm && hasilForm.dilewati.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
+              <p className="mb-2 text-sm font-bold text-amber-800 dark:text-amber-200">
+                {hasilForm.imported} soal masuk, {hasilForm.dilewati.length} dilewati (tidak masuk bank soal):
+              </p>
+              <ul className="max-h-48 space-y-1.5 overflow-y-auto text-sm text-amber-800 dark:text-amber-200">
+                {hasilForm.dilewati.map((d, i) => (
+                  <li key={i}>
+                    <span className="font-semibold">{d.judul}</span> — {d.alasan}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </Modal>

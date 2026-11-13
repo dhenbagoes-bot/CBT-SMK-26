@@ -264,8 +264,8 @@ eq(sheetRows('Pengaturan').filter((x) => x[0] === 'namaSekolah').length, 1, 'kun
 
 console.log('\n[2] ping, doGet, aksi tak dikenal, LockService v1.1.0 (fine-grained)');
 r = post('ping');
-ok(r.success && r.data.version === '1.2.4' && !!r.data.waktu, 'ping -> version + waktu');
-eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.2.4' } }, 'doGet -> info service');
+ok(r.success && r.data.version === '1.2.5' && !!r.data.waktu, 'ping -> version + waktu');
+eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.2.5' } }, 'doGet -> info service');
 r = post('aksiTakDikenal');
 ok(!r.success && r.message === 'Aksi tidak dikenal: aksiTakDikenal', 'aksi tak dikenal -> message sesuai kontrak');
 // v1.1.0: kunci global dihapus — aksi BACA tidak boleh menyentuh LockService sama sekali
@@ -685,9 +685,42 @@ const fakeForm2 = {
     mcItem('Soal form456?', [['Ya', true], ['Tidak', false]]),
   ],
 };
+// (v1.2.5) Jenis item baru: checkbox -> pgk, list -> pg, paragraf -> essay,
+// grid/skala/page-break dilewati dengan alasan.
+function cbItem(title, pairs) {
+  return {
+    getType: () => 'CHECKBOX', getTitle: () => title,
+    asCheckboxItem: () => ({ getChoices: () => pairs.map(([v, c]) => makeChoice(v, c)) }),
+  };
+}
+function listItem(title, pairs) {
+  return {
+    getType: () => 'LIST', getTitle: () => title,
+    asListItem: () => ({ getChoices: () => pairs.map(([v, c]) => makeChoice(v, c)) }),
+  };
+}
+const fakeForm3 = {
+  getItems: () => [
+    cbItem('Pilih 2 benar?', [['A', true], ['B', false], ['C', true], ['D', false]]),
+    cbItem('Semua benar?', [['A', true], ['B', true]]),
+    cbItem('CB tanpa kunci?', [['A', false], ['B', false]]),
+    listItem('Dropdown?', [['X', false], ['Y', true]]),
+    { getType: () => 'PARAGRAPH_TEXT', getTitle: () => 'Jelaskan pendapatmu.' },
+    { getType: () => 'GRID', getTitle: () => 'Petak?' },
+    { getType: () => 'SCALE', getTitle: () => 'Skala?' },
+    { getType: () => 'PAGE_BREAK', getTitle: () => '' },
+  ],
+};
 const fakeFormApp = {
-  ItemType: { MULTIPLE_CHOICE: 'MULTIPLE_CHOICE', TEXT: 'TEXT', PARAGRAPH_TEXT: 'PARAGRAPH_TEXT' },
-  _forms: { form123: fakeForm, form456: fakeForm2 },
+  ItemType: {
+    MULTIPLE_CHOICE: 'MULTIPLE_CHOICE', CHECKBOX: 'CHECKBOX', LIST: 'LIST',
+    TEXT: 'TEXT', PARAGRAPH_TEXT: 'PARAGRAPH_TEXT', GRID: 'GRID',
+    CHECKBOX_GRID: 'CHECKBOX_GRID', SCALE: 'SCALE', DATE: 'DATE',
+    DATETIME: 'DATETIME', TIME: 'TIME', DURATION: 'DURATION',
+    IMAGE: 'IMAGE', VIDEO: 'VIDEO', PAGE_BREAK: 'PAGE_BREAK',
+    SECTION_HEADER: 'SECTION_HEADER',
+  },
+  _forms: { form123: fakeForm, form456: fakeForm2, form789: fakeForm3 },
   openById(id) {
     if (id === 'noperm') throw new Error('You do not have permission to access the requested document.');
     const f = this._forms[id];
@@ -725,11 +758,32 @@ r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'form123', je
 ok(r.success, 'ID mentah (tanpa URL) juga bisa');
 eq([r.data.imported, r.data.dilewati.length], [0, 7], 'impor ulang form sama: imported=0, dilewati=7 (dedupe v1.2.3)');
 ok(r.data.dilewati.some((d) => /Duplikat/.test(d.alasan)), 'dilewati memuat alasan duplikat');
-// URL publikasi /d/e/<ID>/viewform (v1.2.3): segmen "e/" tidak boleh jadi ID
+// URL publikasi /d/e/<ID>/viewform (v1.2.5): ID publikasi bukan ID file form,
+// ditolak dengan petunjuk memakai URL edit (menggantikan perilaku v1.2.3 yang keliru)
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'https://docs.google.com/forms/d/e/form456/viewform', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
-ok(r.success && r.data.imported === 1, 'URL /d/e/ form456 terimpor');
-r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'https://docs.google.com/forms/d/e/form456/viewform', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
-eq([r.data.imported, r.data.dilewati.length], [0, 1], 'impor ulang via /d/e/: imported=0 (dedupe)');
+ok(!r.success && /link publikasi/i.test(r.message) && /URL edit/i.test(r.message), 'URL /d/e/ ditolak dengan petunjuk URL edit (v1.2.5)');
+// Jenis item baru (v1.2.5): checkbox -> pgk, list -> pg, paragraf -> essay
+r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'https://docs.google.com/forms/d/form789/edit', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
+ok(r.success, 'importSoalDariForm form789 sukses');
+eq([r.data.imported, r.data.dilewati.length], [3, 5], 'form789: imported=3 (pgk+pg+essay), dilewati=5');
+{
+  const bank = sheetRows('BankSoal');
+  const pgk = bank.find((x) => x[3] === 'Pilih 2 benar?');
+  const dd = bank.find((x) => x[3] === 'Dropdown?');
+  const es = bank.find((x) => x[3] === 'Jelaskan pendapatmu.');
+  ok(!!pgk && !!dd && !!es, '3 soal jenis baru tersimpan di BankSoal');
+  eq([pgk[15], pgk[9], pgk[17], pgk[16]], ['pgk', 'A,C', '[0,2]', '["A","B","C","D"]'], 'pgk: jenis/kunci/kunciJSON/opsiJSON benar');
+  eq([dd[15], dd[9], dd[17]], ['pg', 'B', '"B"'], 'list -> pg dengan kunci benar');
+  eq([es[15], es[9], es[17], es[16]], ['essay', '', '""', ''], 'paragraf -> essay tanpa kunci');
+  const alasan = r.data.dilewati.map((d) => d.judul + '|' + d.alasan).join(';');
+  ok(/Semua opsi ditandai benar/.test(alasan), 'checkbox semua-benar dilewati');
+  ok(/Petak\?\|Petak: kunci per baris/.test(alasan), 'grid dilewati dengan alasan petak');
+  ok(/Skala linear tidak didukung/.test(alasan), 'skala dilewati');
+  ok(/Soal ke-8\|Bukan soal \(elemen tata letak\)/.test(alasan), 'page break dilewati sebagai tata letak');
+}
+// Alasan lewati TEXT kini menjelaskan keterbatasan kunci (v1.2.5)
+r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'form123', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
+ok(r.data.dilewati.some((d) => d.judul === 'Isian singkat' && /kunci jawaban tidak bisa dibaca/.test(d.alasan)), 'TEXT dilewati: alasan menyebut kunci tak terbaca');
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'tidakada', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
 ok(!r.success && /tidak ditemukan atau tidak dapat diakses/i.test(r.message), 'form id tak dikenal -> error');
 ok(/Detail: Form not found/i.test(r.message), 'error menyertakan detail teknis');
@@ -1186,7 +1240,13 @@ r = post('getAllData', { token: TOKEN_CICI });
 // --- guru ---
 r = post('getAllData', { token: TOKEN_GURU3 });
 ok(r.data.pengguna.length > 0 && r.data.pengguna.every((u) => u.peran !== 'admin'), 'guru -> pengguna tanpa admin');
-ok(r.data.bankSoal.length > 0 && r.data.bankSoal.every((s) => /^[A-E]$/.test(s.kunci)), 'guru -> bankSoal lengkap dengan kunci');
+ok(r.data.bankSoal.length > 0 && r.data.bankSoal.every((s) =>
+  typeof s.kunci === 'string' &&
+  (s.jenis === 'pg' ? /^[A-E]$/.test(s.kunci)
+    : s.jenis === 'pgk' ? /^[A-E](,[A-E])+$/.test(s.kunci)
+    : s.jenis === 'essay' ? s.kunci === ''
+    : true)
+), 'guru -> bankSoal lengkap dengan kunci sesuai jenis (v1.2.5)');
 {
   const p1 = r.data.paket.find((p) => p.id === PAKET1);
   ok(Array.isArray(p1.soalIds) && p1.soalIds.length === 3, 'guru -> paket memuat soalIds');

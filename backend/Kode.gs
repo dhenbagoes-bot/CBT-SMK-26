@@ -66,7 +66,7 @@
  *    SEGERA ganti kata sandi setelah inisialisasi!
  */
 
-var APP_VERSION = '1.2.4';
+var APP_VERSION = '1.2.5';
 
 // ============================================================
 // KONFIGURASI SHEET (satu sumber kebenaran untuk nama & header)
@@ -1844,6 +1844,55 @@ function actionImportSoal(ss, user, p) {
 }
 
 /**
+ * Ekstrak nilai opsi + indeks kunci dari item pilihan Form
+ * (MultipleChoiceItem / ListItem / CheckboxItem). Opsi bernilai kosong
+ * dibuang agar tidak menjadi opsi kosong di bank soal.
+ */
+function ekstrakPilihanForm(item, asMethod) {
+  var nilai = [];
+  var benar = [];
+  var choices = [];
+  try { choices = item[asMethod]().getChoices() || []; } catch (e) {}
+  for (var c = 0; c < choices.length; c++) {
+    var v = '';
+    try { v = asString(choices[c].getValue()); } catch (e2) {}
+    if (!v) continue;
+    var idx = nilai.length;
+    nilai.push(v);
+    var ok = false;
+    try { ok = !!choices[c].isCorrectAnswer(); } catch (e3) {}
+    if (ok) benar.push(idx);
+  }
+  return { nilai: nilai, benar: benar };
+}
+
+/**
+ * Alasan lewati per jenis item Form yang tidak bisa diimpor (v1.2.5).
+ * Apps Script tidak mengekspos kunci jawaban untuk isian singkat maupun
+ * petak, jadi keduanya tidak bisa diimpor beserta kuncinya.
+ */
+function alasanLewatiForm(tipe, TIPE_FORM) {
+  if (tipe === TIPE_FORM.TEXT) {
+    return 'Isian singkat: kunci jawaban tidak bisa dibaca dari Google Form (keterbatasan Apps Script) — tambahkan lewat Bank Soal atau template Excel.';
+  }
+  if (tipe === TIPE_FORM.GRID || tipe === TIPE_FORM.CHECKBOX_GRID) {
+    return 'Petak: kunci per baris tidak bisa dibaca dari Google Form — tambahkan sebagai soal Menjodohkan lewat Bank Soal atau template Excel.';
+  }
+  if (tipe === TIPE_FORM.SCALE) {
+    return 'Skala linear tidak didukung — ubah menjadi pilihan ganda di Form.';
+  }
+  if (tipe === TIPE_FORM.DATE || tipe === TIPE_FORM.DATETIME ||
+      tipe === TIPE_FORM.TIME || tipe === TIPE_FORM.DURATION) {
+    return 'Soal tanggal/waktu tidak didukung.';
+  }
+  if (tipe === TIPE_FORM.IMAGE || tipe === TIPE_FORM.VIDEO ||
+      tipe === TIPE_FORM.PAGE_BREAK || tipe === TIPE_FORM.SECTION_HEADER) {
+    return 'Bukan soal (elemen tata letak).';
+  }
+  return 'Jenis item Form belum didukung.';
+}
+
+/**
  * Impor soal dari Google Form (mode kuis). Hanya berjalan di Apps Script;
  * di lingkungan tanpa FormApp (mis. diuji di node) kembalikan error ramah.
  */
@@ -1865,9 +1914,15 @@ function actionImportSoalDariForm(ss, user, p) {
       return { success: false, message: 'Mapel tidak ditemukan.' };
     }
 
-    // Ambil ID form dari URL edit (.../d/<ID>/edit) MAUPUN URL publikasi
-    // (.../d/e/<ID>/viewform — perhatikan segmen "e/") atau pakai ID mentah.
-    var m = formIdOrUrl.match(/\/d\/(?:e\/)?([a-zA-Z0-9-_]+)/);
+    // v1.2.5: link publikasi /d/e/<ID>/viewform TIDAK bisa dibuka script —
+    // ID publikasi bukan ID file form (terbukti 13 Nov 2026: ID /e/ di URL
+    // /edit menghasilkan "file tidak ada"). Tolak dengan petunjuk jelas
+    // sebelum openById, agar tidak gagal dengan pesan membingungkan.
+    if (/\/d\/e\//.test(formIdOrUrl)) {
+      return { success: false, message: 'Link yang ditempel adalah link publikasi (/d/e/...) untuk siswa mengisi — script tidak bisa membacanya. Buka form di editor (Google Drive → klik dua kali form), salin URL edit (.../d/<ID>/edit), lalu tempel di sini.' };
+    }
+    // Ambil ID form dari URL edit (.../d/<ID>/edit) atau pakai ID mentah.
+    var m = formIdOrUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
     var formId = m ? m[1] : formIdOrUrl;
     var form;
     try {
@@ -1900,60 +1955,87 @@ function actionImportSoalDariForm(ss, user, p) {
     var now = sekarangISODateTime();
     var huruf = ['A', 'B', 'C', 'D', 'E'];
 
+    var TIPE_FORM = FormApp.ItemType;
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
       var judul = '';
       try { judul = asString(item.getTitle()); } catch (e1) {}
       if (!judul) judul = 'Soal ke-' + (i + 1);
+      var tipe = null;
+      try { tipe = item.getType(); } catch (eT) {}
 
-      if (item.getType() !== FormApp.ItemType.MULTIPLE_CHOICE) {
-        dilewati.push({ judul: judul, alasan: 'Bukan soal pilihan ganda.' });
-        continue;
-      }
-      var choices = [];
-      try { choices = item.asMultipleChoiceItem().getChoices(); } catch (e2) {}
-      if (!choices || choices.length < 2) {
-        dilewati.push({ judul: judul, alasan: 'Jumlah opsi kurang dari 2.' });
-        continue;
-      }
-      if (choices.length > 5) {
-        dilewati.push({ judul: judul, alasan: 'Jumlah opsi lebih dari 5.' });
-        continue;
-      }
-      var kunciIdx = -1;
-      var kunciGanda = false;
-      for (var c = 0; c < choices.length; c++) {
-        var benar = false;
-        try { benar = !!choices[c].isCorrectAnswer(); } catch (e3) {}
-        if (benar) {
-          if (kunciIdx >= 0) kunciGanda = true;
-          kunciIdx = c;
+      // --- Item pilihan berkunci (v1.2.5): PG dari MULTIPLE_CHOICE & LIST
+      // (dropdown), PG Kompleks dari CHECKBOX. Aturan PG tidak berubah:
+      // 2-5 opsi, tepat 1 kunci; PGK: 2-5 opsi, >=1 kunci, tidak semua benar.
+      if (tipe === TIPE_FORM.MULTIPLE_CHOICE || tipe === TIPE_FORM.LIST ||
+          tipe === TIPE_FORM.CHECKBOX) {
+        var asMethod = tipe === TIPE_FORM.MULTIPLE_CHOICE ? 'asMultipleChoiceItem'
+          : tipe === TIPE_FORM.LIST ? 'asListItem' : 'asCheckboxItem';
+        var pil = ekstrakPilihanForm(item, asMethod);
+        if (pil.nilai.length < 2) {
+          dilewati.push({ judul: judul, alasan: 'Jumlah opsi kurang dari 2.' });
+          continue;
         }
-      }
-      if (kunciIdx < 0) {
-        dilewati.push({ judul: judul, alasan: 'Tidak ada kunci jawaban (aktifkan mode kuis di Google Form).' });
+        if (pil.nilai.length > 5) {
+          dilewati.push({ judul: judul, alasan: 'Jumlah opsi lebih dari 5.' });
+          continue;
+        }
+        if (pil.benar.length < 1) {
+          dilewati.push({ judul: judul, alasan: 'Tidak ada kunci jawaban (aktifkan mode kuis di Google Form).' });
+          continue;
+        }
+        var jenisSoal, kunciTampil, kunciJSON;
+        if (tipe === TIPE_FORM.CHECKBOX) {
+          if (pil.benar.length >= pil.nilai.length) {
+            dilewati.push({ judul: judul, alasan: 'Semua opsi ditandai benar — sisakan minimal 1 opsi salah.' });
+            continue;
+          }
+          jenisSoal = 'pgk';
+          kunciTampil = pil.benar.map(function (ix) { return huruf[ix]; }).join(',');
+          kunciJSON = JSON.stringify(pil.benar);
+        } else {
+          if (pil.benar.length > 1) {
+            dilewati.push({ judul: judul, alasan: 'Lebih dari satu kunci jawaban.' });
+            continue;
+          }
+          jenisSoal = 'pg';
+          kunciTampil = huruf[pil.benar[0]];
+          kunciJSON = JSON.stringify(kunciTampil);
+        }
+        var kunciSoal = mapelId + '\n' + normalisasiTeksKunci(judul);
+        if (sudahAda[kunciSoal]) {
+          dilewati.push({ judul: judul, alasan: 'Duplikat — soal sudah ada di bank soal.' });
+          continue;
+        }
+        sudahAda[kunciSoal] = true;
+        var opsi = ['', '', '', '', ''];
+        for (var c2 = 0; c2 < pil.nilai.length; c2++) opsi[c2] = pil.nilai[c2];
+        antre.push([Utilities.getUuid(), jenjangId, mapelId, judul,
+          opsi[0], opsi[1], opsi[2], opsi[3], opsi[4],
+          kunciTampil, 1, '', '', now, user.username,
+          jenisSoal, JSON.stringify(pil.nilai), kunciJSON, 'Sedang', '']);
+        imported++;
         continue;
       }
-      if (kunciGanda) {
-        dilewati.push({ judul: judul, alasan: 'Lebih dari satu kunci jawaban.' });
+
+      // --- Paragraf -> esai (v1.2.5): dinilai manual; paragraf tidak punya
+      // kunci jawaban di Google Form, jadi tidak ada validasi kunci.
+      if (tipe === TIPE_FORM.PARAGRAPH_TEXT) {
+        var kunciSoalE = mapelId + '\n' + normalisasiTeksKunci(judul);
+        if (sudahAda[kunciSoalE]) {
+          dilewati.push({ judul: judul, alasan: 'Duplikat — soal sudah ada di bank soal.' });
+          continue;
+        }
+        sudahAda[kunciSoalE] = true;
+        antre.push([Utilities.getUuid(), jenjangId, mapelId, judul,
+          '', '', '', '', '', '', 1, '', '', now, user.username,
+          'essay', '', JSON.stringify(''), 'Sedang', '']);
+        imported++;
         continue;
       }
-      var kunciSoal = mapelId + '\n' + normalisasiTeksKunci(judul);
-      if (sudahAda[kunciSoal]) {
-        dilewati.push({ judul: judul, alasan: 'Duplikat — soal sudah ada di bank soal.' });
-        continue;
-      }
-      sudahAda[kunciSoal] = true;
-      var opsi = ['', '', '', '', ''];
-      for (var c2 = 0; c2 < choices.length; c2++) {
-        try { opsi[c2] = asString(choices[c2].getValue()); } catch (e4) {}
-      }
-      antre.push([Utilities.getUuid(), jenjangId, mapelId, judul,
-        opsi[0], opsi[1], opsi[2], opsi[3], opsi[4],
-        huruf[kunciIdx], 1, '', '', now, user.username,
-        'pg', JSON.stringify(opsi.filter(function (x) { return !!x; })),
-        JSON.stringify(huruf[kunciIdx]), 'Sedang', '']);
-      imported++;
+
+      // --- Jenis lain: dilewati dengan alasan yang menjelaskan penyebabnya.
+      dilewati.push({ judul: judul, alasan: alasanLewatiForm(tipe, TIPE_FORM) });
     }
     if (antre.length > 0) {
       sheet.getRange(sheet.getLastRow() + 1, 1, antre.length, 20).setValues(antre);
