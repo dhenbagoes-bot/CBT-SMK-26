@@ -3,14 +3,16 @@
  * di proyek TTS, diperluas dengan reader & writer .xlsx tulisan tangan).
  *
  * Format .txt per blok (dipisah baris kosong):
- *   JENIS: pg | pgk | bs | jodoh | isian | essay   (bila kosong = pg)
+ *   JENIS: pg | pgk | bs | jodoh | grid | isian | essay   (bila kosong = pg)
  *   SOAL: Teks soal...
  *   A: opsi A ... E: opsi E (opsional)   [khusus pg/pgk]
  *   KUNCI: A            [pg]  |  A,C    [pgk]  |  Benar/Salah [bs]
- *          | teks jawaban [isian]  |  1-2,2-1,3-3 [jodoh, nomor kiri-kanan]
+ *          | teks jawaban [isian]  |  1-2,2-1,3-3 [jodoh/grid, nomor baris-kolom]
  *          | (kosong untuk essay — dinilai manual)
  *   PASANGAN: kiri | kanan   [jodoh: satu baris per pasangan; bila KUNCI
  *          jodoh kosong, pasangan dianggap sudah berurutan benar]
+ *   BARIS: pernyataan   [grid: satu baris per pernyataan]
+ *   KOLOM: pilihan      [grid: satu baris per kolom; KUNCI wajib diisi]
  *   BOBOT: 1
  *   PEMBAHASAN: teks (opsional)
  *
@@ -20,7 +22,7 @@
  * Format .docx: diekstrak jadi teks lalu di-parse seperti .txt (mode longgar).
  */
 
-export type JenisSoalImpor = 'pg' | 'pgk' | 'bs' | 'jodoh' | 'isian' | 'essay';
+export type JenisSoalImpor = 'pg' | 'pgk' | 'bs' | 'jodoh' | 'grid' | 'isian' | 'essay';
 
 export interface ItemSoalImpor {
   soal: string;
@@ -140,6 +142,22 @@ export const CONTOH_SOAL: ItemSoalImpor[] = [
     pasanganKiri: ['Semarang', 'Surabaya', 'Bandung'],
     pasanganKanan: ['Jawa Tengah', 'Jawa Timur', 'Jawa Barat'],
     kunciJodoh: { 0: 0, 1: 1, 2: 2 },
+    bobot: 3,
+    pembahasan: '',
+  },
+  {
+    ...SOAL_DASAR,
+    jenis: 'grid',
+    soal: 'Tentukan benar atau salah pernyataan berikut.',
+    opsiA: '',
+    opsiB: '',
+    opsiC: '',
+    opsiD: '',
+    opsiE: '',
+    kunci: '',
+    pasanganKiri: ['Matahari terbit dari timur.', 'Air mendidih pada suhu 50 derajat Celsius.', 'Bumi mengelilingi Matahari.'],
+    pasanganKanan: ['Benar', 'Salah'],
+    kunciJodoh: { 0: 0, 1: 1, 2: 0 },
     bobot: 3,
     pembahasan: '',
   },
@@ -436,6 +454,9 @@ export const ALIAS_JENIS: Record<string, JenisSoalImpor> = {
   'benar salah': 'bs',
   jodoh: 'jodoh',
   menjodohkan: 'jodoh',
+  grid: 'grid',
+  'pilihan ganda grid': 'grid',
+  'pg grid': 'grid',
   isian: 'isian',
   'isian singkat': 'isian',
   essay: 'essay',
@@ -506,6 +527,20 @@ export function validasiItemSoal(
         return `Menjodohkan: kunci pasangan ke-${i + 1} tidak valid`;
       }
     }
+  } else if (jenis === 'grid') {
+    // Grid (v1.3.0): jumlah baris BOLEH berbeda dengan jumlah kolom;
+    // kunci tiap baris WAJIB eksplisit (tidak ada default diagonal).
+    const kiri = (item.pasanganKiri || []).filter((x) => x.trim());
+    const kanan = (item.pasanganKanan || []).filter((x) => x.trim());
+    if (kiri.length < 2) return 'Pilihan Ganda Grid: isi minimal 2 baris';
+    if (kanan.length < 2) return 'Pilihan Ganda Grid: isi minimal 2 kolom';
+    const kj = item.kunciJodoh || {};
+    for (let i = 0; i < kiri.length; i++) {
+      const target = kj[i];
+      if (target === undefined || !Number.isInteger(target) || target < 0 || target >= kanan.length) {
+        return `Pilihan Ganda Grid: kunci baris ke-${i + 1} tidak valid (isi KUNCI: 1-2,2-1,...)`;
+      }
+    }
   } else if (jenis === 'isian') {
     if (!kunciRaw) return 'Kunci isian (teks jawaban) wajib diisi';
   } else if (jenis === 'essay') {
@@ -556,7 +591,7 @@ function itemLengkap(item: Partial<ItemSoalImpor>): ItemSoalImpor {
  * diawali kata kunci diperlakukan sebagai kelanjutan teks kunci sebelumnya.
  */
 export function parseTeksBlokSoal(teks: string, longgar = false): BarisSoalImpor[] {
-  const KUNCI_RE = /^(SOAL|JENIS|KUNCI|BOBOT|PEMBAHASAN|PASANGAN)\s*:\s*([\s\S]*)$/i;
+  const KUNCI_RE = /^(SOAL|JENIS|KUNCI|BOBOT|PEMBAHASAN|PASANGAN|BARIS|KOLOM)\s*:\s*([\s\S]*)$/i;
   const OPSI_RE = /^([A-E])\s*:\s*([\s\S]*)$/i;
   const hasil: BarisSoalImpor[] = [];
   const sudahAda = new Set<string>();
@@ -632,9 +667,23 @@ export function parseTeksBlokSoal(teks: string, longgar = false): BarisSoalImpor
           c.pasanganKanan = [...(c.pasanganKanan || []), kanan || ''];
         }
         kunciAktif = null;
+      } else if (k === 'BARIS') {
+        // grid: satu pernyataan per baris (masuk pasanganKiri)
+        if (v) {
+          const c = mulai();
+          c.pasanganKiri = [...(c.pasanganKiri || []), v];
+        }
+        kunciAktif = null;
+      } else if (k === 'KOLOM') {
+        // grid: satu kolom per baris (masuk pasanganKanan)
+        if (v) {
+          const c = mulai();
+          c.pasanganKanan = [...(c.pasanganKanan || []), v];
+        }
+        kunciAktif = null;
       } else if (k === 'KUNCI') {
         const jenisCur = normalisasiJenis(mulai().jenis as string | undefined);
-        if (jenisCur === 'jodoh' && /^\d+\s*-\s*\d+/.test(v)) {
+        if ((jenisCur === 'jodoh' || jenisCur === 'grid') && /^\d+\s*-\s*\d+/.test(v)) {
           // format "1-2,2-1,3-3" (1-based) -> kunciJodoh 0-based
           const kj: Record<number, number> = {};
           for (const pas of v.split(',')) {
@@ -1026,6 +1075,14 @@ function teksBlokSoal(it: ItemSoalImpor): string {
       .map(([k, v]) => `${Number(k) + 1}-${Number(v) + 1}`)
       .join(',');
     if (kj) baris.push(`KUNCI: ${kj}`);
+  } else if (it.jenis === 'grid') {
+    for (const k of it.pasanganKanan) baris.push(`KOLOM: ${k}`);
+    for (const b of it.pasanganKiri) baris.push(`BARIS: ${b}`);
+    const kj = Object.entries(it.kunciJodoh)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([k, v]) => `${Number(k) + 1}-${Number(v) + 1}`)
+      .join(',');
+    if (kj) baris.push(`KUNCI: ${kj}`);
   } else if (it.jenis === 'isian') {
     baris.push(`KUNCI: ${it.kunci}`);
   }
@@ -1039,16 +1096,19 @@ function teksBlokSoal(it: ItemSoalImpor): string {
 export function unduhTemplateTxt(): void {
   const isi = [
     '# =============================================================',
-    '# TEMPLATE SOAL CBT MADRASAH DIGITAL (6 jenis soal)',
+    '# TEMPLATE SOAL CBT MADRASAH DIGITAL (7 jenis soal)',
     '#',
     '# Cara pakai:',
     '# 1. Satu soal = satu BLOK, dipisah dengan BARIS KOSONG.',
-    '# 2. Tulis JENIS dulu (pg | pgk | bs | jodoh | isian | essay). Bila kosong = pg.',
+    '# 2. Tulis JENIS dulu (pg | pgk | bs | jodoh | grid | isian | essay). Bila kosong = pg.',
     '#    pg:    A:.. B:.. C:.. D:.. (E opsional), KUNCI: A',
     '#    pgk:   A:.. B:.. C:.. D:.., KUNCI: A,C (minimal 2 huruf)',
     '#    bs:    KUNCI: Benar  atau  KUNCI: Salah',
     '#    jodoh: PASANGAN: kiri | kanan (satu baris per pasangan),',
     '#          KUNCI: 1-2,2-1 (opsional; bila kosong = pasangan sudah berurutan)',
+    '#    grid:  KOLOM: pilihan (satu baris per kolom), BARIS: pernyataan',
+    '#          (satu baris per pernyataan), KUNCI: 1-1,2-2,3-1 (WAJIB diisi,',
+    '#          nomor baris-kolom; jumlah baris boleh beda dengan kolom)',
     '#    isian: KUNCI: teks jawaban (cocok tanpa peduli huruf besar/kecil)',
     '#    essay: tanpa KUNCI — dinilai manual oleh guru (0 s.d. bobot)',
     '#    BOBOT: 1    (bilangan bulat, minimal 1; bila kosong = 1)',
@@ -1088,17 +1148,18 @@ export function unduhTemplateXlsx(): void {
       .join(','),
   ]);
   const caraPakai = [
-    ['CARA PAKAI TEMPLATE SOAL CBT (6 JENIS SOAL)'],
+    ['CARA PAKAI TEMPLATE SOAL CBT (7 JENIS SOAL)'],
     ['1. Isi sheet "Soal". Baris contoh boleh dihapus/diubah.'],
     ['2. Kolom: No | Jenis | Soal | A | B | C | D | E | Kunci | Bobot | Pembahasan | PasanganKiri | PasanganKanan | KunciJodoh.'],
-    ['3. Jenis: pg | pgk | bs | jodoh | isian | essay (kosong = pg).'],
+    ['3. Jenis: pg | pgk | bs | jodoh | grid | isian | essay (kosong = pg).'],
     ['4. pg: opsi A-D wajib; Kunci salah satu dari A-E.'],
     ['5. pgk: opsi A-D wajib; Kunci minimal 2 huruf, mis. A,C.'],
     ['6. bs: Kunci "Benar" atau "Salah". isian: Kunci = teks jawaban. essay: Kunci kosong (dinilai manual).'],
     ['7. jodoh: PasanganKiri & PasanganKanan dipisah " | " dalam satu sel; KunciJodoh mis. 1-2,2-1 (kosong = sudah berurutan).'],
-    ['8. Bobot: bilangan bulat minimal 1 (kosong = 1).'],
-    ['9. Simpan, lalu unggah lewat Bank Soal > Template & Unggah.'],
-    ['10. Contoh pada sheet "Soal" boleh langsung diunggah tanpa diubah.'],
+    ['8. grid: PasanganKiri = baris/pernyataan, PasanganKanan = kolom/pilihan (dipisah " | "); jumlah baris boleh beda dengan kolom; KunciJodoh WAJIB diisi mis. 1-1,2-2,3-1.'],
+    ['9. Bobot: bilangan bulat minimal 1 (kosong = 1).'],
+    ['10. Simpan, lalu unggah lewat Bank Soal > Template & Unggah.'],
+    ['11. Contoh pada sheet "Soal" boleh langsung diunggah tanpa diubah.'],
   ];
   const xlsx = buatXlsx([
     { nama: 'Soal', data: [header, ...data] },
@@ -1126,7 +1187,7 @@ export function buatDocxTemplateSoal(contoh: ItemSoalImpor[]): Blob {
     paraDocx('TEMPLATE SOAL CBT MADRASAH DIGITAL', { bold: true, size: 28, center: true }),
     paraDocx('Cara pakai:', { bold: true }),
     paraDocx('1. Satu soal = satu blok paragraf, dipisah dengan paragraf kosong.'),
-    paraDocx('2. Format: JENIS: pg/pgk/bs/jodoh/isian/essay, lalu SOAL: ..., opsi A:.. D:.. (khusus pg/pgk), KUNCI: A / A,C / Benar / teks jawaban, PASANGAN: kiri | kanan (khusus jodoh), BOBOT: 1, PEMBAHASAN: ... (opsional).'),
+    paraDocx('2. Format: JENIS: pg/pgk/bs/jodoh/grid/isian/essay, lalu SOAL: ..., opsi A:.. D:.. (khusus pg/pgk), KUNCI: A / A,C / Benar / teks jawaban / 1-2,2-1 (jodoh & grid), PASANGAN: kiri | kanan (khusus jodoh), BARIS: ... & KOLOM: ... (khusus grid), BOBOT: 1, PEMBAHASAN: ... (opsional).'),
     paraDocx('3. Simpan file ini (.docx), lalu unggah lewat menu Bank Soal > Template & Unggah.'),
     paraDocx('Contoh siap pakai (boleh langsung diunggah tanpa diubah):', { bold: true }),
     paraDocx(''),

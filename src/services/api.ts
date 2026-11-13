@@ -408,7 +408,7 @@ export function importSoalDariForm(
   formIdOrUrl: string,
   jenjangId: string,
   mapelId: string
-): Promise<{ imported: number; dilewati: { judul: string; alasan: string }[] }> {
+): Promise<{ imported: number; dilewati: { judul: string; alasan: string }[]; gridTanpaKunci?: number }> {
   return api('importSoalDariForm', { formIdOrUrl, jenjangId, mapelId });
 }
 

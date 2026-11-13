@@ -2,19 +2,20 @@
 
 export type Peran = 'admin' | 'guru' | 'siswa';
 
-/** Jenis soal — 6 jenis (v1.0.0). */
-export type JenisSoal = 'pg' | 'pgk' | 'bs' | 'jodoh' | 'isian' | 'essay';
+/** Jenis soal — 7 jenis (grid ditambah v1.3.0). */
+export type JenisSoal = 'pg' | 'pgk' | 'bs' | 'jodoh' | 'grid' | 'isian' | 'essay';
 
 export const LABEL_JENIS_SOAL: Record<JenisSoal, string> = {
   pg: 'Pilihan Ganda',
   pgk: 'Pilihan Ganda Kompleks',
   bs: 'Benar / Salah',
   jodoh: 'Menjodohkan',
+  grid: 'Pilihan Ganda Grid',
   isian: 'Isian Singkat',
   essay: 'Essay',
 };
 
-export const SEMUA_JENIS_SOAL: JenisSoal[] = ['pg', 'pgk', 'bs', 'jodoh', 'isian', 'essay'];
+export const SEMUA_JENIS_SOAL: JenisSoal[] = ['pg', 'pgk', 'bs', 'jodoh', 'grid', 'isian', 'essay'];
 
 /** Pengaturan sekolah (wire: angka untuk flag; wa* berupa string). */
 export interface Pengaturan {
@@ -87,14 +88,14 @@ export interface SoalBank {
    * - pgk: huruf dipisah koma, mis. 'A,C'
    * - bs: 'Benar' | 'Salah'
    * - isian: teks jawaban (cocok case-insensitive, spasi berlebih diabaikan)
-   * - jodoh: dipakai bersama kunciJodoh (kunci = '' bila kunciJodoh ada)
+   * - jodoh/grid: dipakai bersama kunciJodoh (kunci = '' bila kunciJodoh ada)
    * - essay: '' (dinilai manual)
    */
   kunci: string;
-  /** Menjodohkan: daftar kiri & kanan (indeks berpasangan di kunciJodoh). */
+  /** Menjodohkan / Grid: daftar kiri (baris) & kanan (kolom). */
   pasanganKiri: string[];
   pasanganKanan: string[];
-  /** Menjodohkan: peta indeks kiri -> indeks kanan, mis. {0:1, 1:0}. */
+  /** Menjodohkan / Grid: peta indeks kiri -> indeks kanan, mis. {0:1, 1:0}. Nilai -1 = kunci belum diatur. */
   kunciJodoh: Record<number, number>;
   bobot: number;
   pembahasan: string;
@@ -107,7 +108,7 @@ export interface SoalBank {
  * + kunci huruf) dibaca sebagai PG; field baru yang belum ada di backend
  * lama diisi default aman. Selalu kembalikan objek lengkap.
  */
-export function normalisasiSoalBank(s: Partial<SoalBank> & { id: string }): SoalBank {
+export function normalisasiSoalBank(s: Partial<SoalBank> & { id: string; kunciNilai?: unknown }): SoalBank {
   const opsiA = s.opsiA || (s.opsi && s.opsi[0]) || '';
   const opsiB = s.opsiB || (s.opsi && s.opsi[1]) || '';
   const opsiC = s.opsiC || (s.opsi && s.opsi[2]) || '';
@@ -117,6 +118,20 @@ export function normalisasiSoalBank(s: Partial<SoalBank> & { id: string }): Soal
     ? s.opsi
     : [opsiA, opsiB, opsiC, opsiD, opsiE];
   const jenis: JenisSoal = s.jenis && SEMUA_JENIS_SOAL.includes(s.jenis) ? s.jenis : 'pg';
+  // Kunci jodoh/grid dari backend datang sebagai `kunciNilai` (array indeks
+  // kanan per baris, hasil parse kunciJSON). Turunkan ke peta kunciJodoh
+  // agar editor menampilkan kunci yang tersimpan — sebelumnya kunciJodoh
+  // selalu kosong sehingga editor menampilkan kunci diagonal (v1.3.0).
+  // Nilai -1 = kunci belum diatur (soal grid hasil impor Form).
+  let kunciJodoh: Record<number, number> = {};
+  if ((jenis === 'jodoh' || jenis === 'grid') && Array.isArray(s.kunciNilai)) {
+    s.kunciNilai.forEach((v, i) => {
+      const n = Number(v);
+      if (Number.isInteger(n)) kunciJodoh[i] = n;
+    });
+  } else if (s.kunciJodoh && typeof s.kunciJodoh === 'object') {
+    kunciJodoh = s.kunciJodoh;
+  }
   return {
     id: s.id,
     jenjangId: s.jenjangId || '',
@@ -132,7 +147,7 @@ export function normalisasiSoalBank(s: Partial<SoalBank> & { id: string }): Soal
     kunci: s.kunci || '',
     pasanganKiri: Array.isArray(s.pasanganKiri) ? s.pasanganKiri : [],
     pasanganKanan: Array.isArray(s.pasanganKanan) ? s.pasanganKanan : [],
-    kunciJodoh: s.kunciJodoh && typeof s.kunciJodoh === 'object' ? s.kunciJodoh : {},
+    kunciJodoh,
     bobot: typeof s.bobot === 'number' && s.bobot >= 1 ? s.bobot : 1,
     pembahasan: s.pembahasan || '',
     gambarUrl: s.gambarUrl || '',

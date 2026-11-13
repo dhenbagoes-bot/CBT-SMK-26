@@ -9,7 +9,7 @@
  *  - Pengguna: CRUD admin/guru/siswa + reset password + impor siswa massal
  *    (termasuk No. HP/WA orang tua).
  *  - Bank soal: CRUD + impor massal + impor dari Google Form (kuis).
- *    6 jenis soal (pg/pgk/bs/jodoh/isian/essay) + penilaian manual essay.
+ *    7 jenis soal (pg/pgk/bs/jodoh/grid/isian/essay) + penilaian manual essay.
  *  - Paket try out: mode manual / acak, jendela waktu, batas kelas.
  *  - Sesi ujian: mulai (acak soal per siswa, token ujian STATIS),
  *    get, batalkan (idempotent, aman untuk sendBeacon), catat peringatan
@@ -60,13 +60,13 @@
  *    Hash/garam/token TIDAK PERNAH dikirim ke frontend.
  *  - Kunci jawaban & pembahasan TIDAK PERNAH dikirim ke siswa.
  *  - Penilaian submitJawaban DIHITUNG DI SERVER dari kunci BankSoal
- *    (6 jenis soal; essay dinilai manual via nilaiEssay).
+ *    (7 jenis soal; essay dinilai manual via nilaiEssay).
  *  - Token sesi kedaluwarsa 7 hari; logout menghapus token.
  *  - Akun bawaan: admin / admin123 (admin), guru / guru123 (guru).
  *    SEGERA ganti kata sandi setelah inisialisasi!
  */
 
-var APP_VERSION = '1.2.6';
+var APP_VERSION = '1.3.0';
 
 // ============================================================
 // KONFIGURASI SHEET (satu sumber kebenaran untuk nama & header)
@@ -904,17 +904,19 @@ function initializeAllSheets(ss) {
     }
   }
 
-  // Seed jenjang: SMK, SMA, MA (v1.2.0 — sebelumnya MTs/SMP & MA/SMA/SMK).
-  seedJenjang(ss, 'JJG-SMK', 'SMK');
-  seedJenjang(ss, 'JJG-SMA', 'SMA');
-  seedJenjang(ss, 'JJG-MA', 'MA');
+  // Seed jenjang (v1.3.0): SATU jenjang saja, 'MA/SMA/SMK' (id JJG-SMA —
+  // sama dengan seed v1.0.0, agar initDatabase ulang tidak menduplikasi).
+  // Jenjang MTs/SMP tidak lagi di-seed; data lama yang masih memakai
+  // jenjang lain tidak diubah oleh seed ini.
+  seedJenjang(ss, 'JJG-SMA', 'MA/SMA/SMK');
 
-  // Seed 6 kelas awal (7A, 7B, 8A, 8B, 9A, 9B) di bawah jenjang SMK — admin
-  // bebas mengubah/menghapusnya di Kelola Data. Mapel TIDAK di-seed
-  // (admin mengisi manual lewat Kelola Data / impor Excel).
+  // Seed 6 kelas awal (7A, 7B, 8A, 8B, 9A, 9B) di bawah jenjang
+  // MA/SMA/SMK — admin bebas mengubah/menghapusnya di Kelola Data.
+  // Mapel TIDAK di-seed (admin mengisi manual lewat Kelola Data /
+  // impor Excel).
   var kelasSeed = ['7A', '7B', '8A', '8B', '9A', '9B'];
   for (var kk = 0; kk < kelasSeed.length; kk++) {
-    seedKelas(ss, 'KLS-' + kelasSeed[kk], 'JJG-SMK', kelasSeed[kk]);
+    seedKelas(ss, 'KLS-' + kelasSeed[kk], 'JJG-SMA', kelasSeed[kk]);
   }
 
   // Seed 2 akun bawaan (hanya jika username belum ada)
@@ -1561,7 +1563,7 @@ function validasiSoal(ss, p) {
   var soal = asString(p.soal);
   var jenis = asString(p.jenis) || 'pg';
   if (JENIS_SOAL_VALID.indexOf(jenis) < 0) {
-    return { ok: false, message: 'Jenis soal tidak valid (pg/pgk/bs/jodoh/isian/essay).' };
+    return { ok: false, message: 'Jenis soal tidak valid (pg/pgk/bs/jodoh/grid/isian/essay).' };
   }
   var bobot = p.bobot === undefined || p.bobot === null || p.bobot === ''
     ? 1 : asInt(p.bobot, -1);
@@ -1658,11 +1660,15 @@ function validasiSoal(ss, p) {
     opsiA = 'Benar'; opsiB = 'Salah';
     opsiJSON = JSON.stringify(['Benar', 'Salah']);
     kunciJSON = JSON.stringify(kunciTampil);
-  } else if (jenis === 'jodoh') {
+  } else if (jenis === 'jodoh' || jenis === 'grid') {
+    // Grid (v1.3.0) memakai model data yang sama dengan menjodohkan:
+    // kiri = baris, kanan = kolom, kunci = indeks kolom benar per baris.
+    // Bedanya: grid memperbolehkan jumlah baris != jumlah kolom.
+    var labelJenis = jenis === 'grid' ? 'Pilihan Ganda Grid' : 'Menjodohkan';
     var kiri = p.pasanganKiri || p.kiri || [];
     var kanan = p.pasanganKanan || p.kanan || [];
     if (!Array.isArray(kiri) || !Array.isArray(kanan)) {
-      return { ok: false, message: 'Menjodohkan membutuhkan pasanganKiri & pasanganKanan (array).' };
+      return { ok: false, message: labelJenis + ' membutuhkan pasanganKiri & pasanganKanan (array).' };
     }
     var kiriBersih = [], kananBersih = [];
     for (var kl = 0; kl < kiri.length; kl++) {
@@ -1672,7 +1678,7 @@ function validasiSoal(ss, p) {
       if (asString(kanan[kn])) kananBersih.push(asString(kanan[kn]));
     }
     if (kiriBersih.length < 2 || kananBersih.length < 2) {
-      return { ok: false, message: 'Menjodohkan membutuhkan minimal 2 pasangan kiri dan 2 kanan.' };
+      return { ok: false, message: labelJenis + ' membutuhkan minimal 2 baris kiri dan 2 kolom kanan.' };
     }
     // Kunci boleh berupa array indeks ([1,0]) atau peta {0:1, 1:0}
     // (format yang dikirim form frontend) — peta dikonversi ke array.
@@ -1686,16 +1692,16 @@ function validasiSoal(ss, p) {
       }
     }
     if (!Array.isArray(kunciJodoh)) {
-      return { ok: false, message: 'Kunci menjodohkan harus array indeks kanan per pasangan kiri.' };
+      return { ok: false, message: 'Kunci ' + labelJenis + ' harus array indeks kanan per baris kiri.' };
     }
     if (kunciJodoh.length !== kiriBersih.length) {
-      return { ok: false, message: 'Jumlah kunci menjodohkan harus sama dengan jumlah pasangan kiri.' };
+      return { ok: false, message: 'Jumlah kunci ' + labelJenis + ' harus sama dengan jumlah baris kiri.' };
     }
     var kunciJ = [];
     for (var kj = 0; kj < kunciJodoh.length; kj++) {
       var n = parseInt(kunciJodoh[kj], 10);
       if (isNaN(n) || n < 0 || n >= kananBersih.length) {
-        return { ok: false, message: 'Kunci menjodohkan ke-' + (kj + 1) + ' di luar jangkauan pasangan kanan.' };
+        return { ok: false, message: 'Kunci ' + labelJenis + ' ke-' + (kj + 1) + ' di luar jangkauan kolom kanan.' };
       }
       kunciJ.push(n);
     }
@@ -1867,16 +1873,18 @@ function ekstrakPilihanForm(item, asMethod) {
 }
 
 /**
- * Alasan lewati per jenis item Form yang tidak bisa diimpor (v1.2.5).
- * Apps Script tidak mengekspos kunci jawaban untuk isian singkat maupun
- * petak, jadi keduanya tidak bisa diimpor beserta kuncinya.
+ * Alasan lewati per jenis item Form yang tidak bisa diimpor (v1.2.5,
+ * v1.3.0). Apps Script tidak mengekspos kunci jawaban untuk isian
+ * singkat; petak pilihan ganda kini diimpor sebagai soal grid dengan
+ * kunci belum diatur (v1.3.0), sedangkan petak kotak centang tetap
+ * dilewati karena tiap barisnya boleh memilih lebih dari satu kolom.
  */
 function alasanLewatiForm(tipe, TIPE_FORM) {
   if (tipe === TIPE_FORM.TEXT) {
     return 'Isian singkat: kunci jawaban tidak bisa dibaca dari Google Form (keterbatasan Apps Script) — tambahkan lewat Bank Soal atau template Excel.';
   }
-  if (tipe === TIPE_FORM.GRID || tipe === TIPE_FORM.CHECKBOX_GRID) {
-    return 'Petak: kunci per baris tidak bisa dibaca dari Google Form — tambahkan sebagai soal Menjodohkan lewat Bank Soal atau template Excel.';
+  if (tipe === TIPE_FORM.CHECKBOX_GRID) {
+    return 'Petak kotak centang: tiap baris boleh memilih lebih dari satu kolom — belum didukung. Ubah menjadi petak pilihan ganda di Form, atau tambahkan lewat Bank Soal.';
   }
   if (tipe === TIPE_FORM.SCALE) {
     return 'Skala linear tidak didukung — ubah menjadi pilihan ganda di Form.';
@@ -1950,6 +1958,7 @@ function actionImportSoalDariForm(ss, user, p) {
       sudahAda[asString(adaRows[e][2]) + '\n' + normalisasiTeksKunci(asString(adaRows[e][3]))] = true;
     }
     var imported = 0;
+    var gridTanpaKunci = 0;
     var dilewati = [];
     var antre = [];
     var now = sekarangISODateTime();
@@ -2034,6 +2043,41 @@ function actionImportSoalDariForm(ss, user, p) {
         continue;
       }
 
+      // --- Petak pilihan ganda -> grid (v1.3.0): baris & kolom dibaca dari
+      // Form, tetapi kunci per baris TIDAK bisa dibaca Apps Script
+      // (GridItem tidak mengekspos kunci — terverifikasi di dokumentasi
+      // resmi). Soal diimpor dengan kunci -1 (belum diatur); guru WAJIB
+      // mengatur kunci di Bank Soal sebelum soal dipakai ujian.
+      // `gridTanpaKunci` dihitung agar frontend menampilkan peringatan.
+      if (tipe === TIPE_FORM.GRID) {
+        var barisGrid = [], kolomGrid = [];
+        try {
+          var gItem = item.asGridItem();
+          barisGrid = (gItem.getRows() || []).map(asString)
+            .filter(function (x) { return !!x; });
+          kolomGrid = (gItem.getColumns() || []).map(asString)
+            .filter(function (x) { return !!x; });
+        } catch (eG) {}
+        if (barisGrid.length < 2 || kolomGrid.length < 2) {
+          dilewati.push({ judul: judul, alasan: 'Petak: isi minimal 2 baris dan 2 kolom.' });
+          continue;
+        }
+        var kunciSoalG = mapelId + '\n' + normalisasiTeksKunci(judul);
+        if (sudahAda[kunciSoalG]) {
+          dilewati.push({ judul: judul, alasan: 'Duplikat — soal sudah ada di bank soal.' });
+          continue;
+        }
+        sudahAda[kunciSoalG] = true;
+        var kunciKosong = barisGrid.map(function () { return -1; });
+        antre.push([Utilities.getUuid(), jenjangId, mapelId, judul,
+          '', '', '', '', '', '', 1, '', '', now, user.username,
+          'grid', JSON.stringify({ kiri: barisGrid, kanan: kolomGrid }),
+          JSON.stringify(kunciKosong), 'Sedang', '']);
+        imported++;
+        gridTanpaKunci++;
+        continue;
+      }
+
       // --- Jenis lain: dilewati dengan alasan yang menjelaskan penyebabnya.
       dilewati.push({ judul: judul, alasan: alasanLewatiForm(tipe, TIPE_FORM) });
     }
@@ -2045,7 +2089,8 @@ function actionImportSoalDariForm(ss, user, p) {
       success: true,
       message: 'Impor selesai: ' + imported + ' soal diimpor, ' +
         dilewati.length + ' dilewati.',
-      data: { imported: imported, dilewati: dilewati }
+      data: { imported: imported, dilewati: dilewati,
+        gridTanpaKunci: gridTanpaKunci }
     };
   } catch (err) {
     return { success: false, error: 'importSoalDariForm: ' + err.message };
@@ -2216,7 +2261,7 @@ function actionDeletePaket(ss, p) {
 // ============================================================
 // SOAL 6 JENIS + PENILAIAN + JAWABAN TERSIMPAN (v1.0.0)
 // ============================================================
-var JENIS_SOAL_VALID = ['pg', 'pgk', 'bs', 'jodoh', 'isian', 'essay'];
+var JENIS_SOAL_VALID = ['pg', 'pgk', 'bs', 'jodoh', 'grid', 'isian', 'essay'];
 var TINGKAT_VALID = ['Mudah', 'Sedang', 'Sulit'];
 
 /** Normalisasi jawaban isian: abaikan huruf besar/kecil & spasi berlebih. */
@@ -2242,8 +2287,8 @@ function parseSoalBankRow(r) {
     if (opsiTeks[i]) opsi.push(opsiTeks[i]);
   }
   var kiri = [], kanan = [];
-  if (jenis === 'jodoh' && opsiJSON && typeof opsiJSON === 'object' &&
-      !Array.isArray(opsiJSON)) {
+  if ((jenis === 'jodoh' || jenis === 'grid') && opsiJSON &&
+      typeof opsiJSON === 'object' && !Array.isArray(opsiJSON)) {
     kiri = Array.isArray(opsiJSON.kiri)
       ? opsiJSON.kiri.map(asString) : [];
     kanan = Array.isArray(opsiJSON.kanan)
@@ -2337,7 +2382,7 @@ function jodohKeArray(jawaban, total) {
 }
 
 /**
- * Skor SATU soal (6 jenis). Mengembalikan
+ * Skor SATU soal (7 jenis). Mengembalikan
  * {skor, terjawab, penuh, menunggu} — `menunggu`=true hanya untuk essay
  * yang sudah dijawab tapi belum dinilai manual (skorEssay null).
  * `skorEssay`: skor manual essay (number) atau null bila belum dinilai.
@@ -2346,7 +2391,7 @@ function jodohKeArray(jawaban, total) {
  *  - pg: benar=bobot, salah=0.
  *  - pgk: (benarDipilih - salahDipilih) / jumlahKunciBenar * bobot, floor 0.
  *  - bs: cocok 'Benar'/'Salah' -> bobot, else 0.
- *  - jodoh: pasanganBenar / totalPasangan * bobot.
+ *  - jodoh/grid: pasanganBenar / totalPasangan * bobot.
  *  - isian: cocok kunci (case-insensitive, spasi berlebih diabaikan) -> bobot.
  *  - essay: 0 sampai dinilai manual.
  */
@@ -2405,7 +2450,7 @@ function skorSatuSoal(soal, jawaban, skorEssay) {
     return { skor: okBs ? bobot : 0, terjawab: true, penuh: okBs,
       menunggu: false };
   }
-  if (jenis === 'jodoh') {
+  if (jenis === 'jodoh' || jenis === 'grid') {
     var kunciJ = Array.isArray(soal.kunci) ? soal.kunci : [];
     var total = kunciJ.length;
     if (total === 0) {
@@ -2631,7 +2676,7 @@ function ambilPaket(ss, paketId) {
  *    (`kode` = kode asli (A-E) agar penilaian server tetap cocok;
  *    opsi diacak bila acakOpsi=1, kode ikut terbawa.)
  *  - bs: opsi = [{kode:'Benar'},{kode:'Salah'}].
- *  - jodoh: {pasanganKiri:[...], pasanganKanan:[...]} (urutan kanan TIDAK
+ *  - jodoh/grid: {pasanganKiri:[...], pasanganKanan:[...]} (urutan kanan TIDAK
  *    diacak — kunci menyimpan indeks kanan asli).
  *  - isian/essay: opsi kosong, jawaban berupa teks bebas.
  */
@@ -2682,7 +2727,7 @@ function susunSoalUntukKlien(ss, soalIds, acakOpsi) {
     } else if (soal.jenis === 'bs') {
       item.opsi = [{ kode: 'Benar', teks: 'Benar' },
         { kode: 'Salah', teks: 'Salah' }];
-    } else if (soal.jenis === 'jodoh') {
+    } else if (soal.jenis === 'jodoh' || soal.jenis === 'grid') {
       item.pasanganKiri = soal.kiri.slice();
       item.pasanganKanan = soal.kanan.slice();
     }
@@ -2975,7 +3020,7 @@ function actionSubmitJawaban(ss, user, p) {
     var soalIds = parseJSONLunak(row[7], []);
     if (!Array.isArray(soalIds)) soalIds = [];
 
-    // Peta soal lengkap (6 jenis) — baca BankSoal SEKALI.
+    // Peta soal lengkap (7 jenis) — baca BankSoal SEKALI.
     var bank = readRows(ss.getSheetByName(SHEET_BANKSOAL));
     var petaSoal = {};
     for (var i = 0; i < bank.length; i++) {
@@ -3015,7 +3060,7 @@ function actionSubmitJawaban(ss, user, p) {
       tulisJawabanBatch(ss, sesiId, jawabanGabung, petaSoal);
     }
 
-    // PENILAIAN DIHITUNG DI SERVER (6 jenis soal — lihat hitungHasil).
+    // PENILAIAN DIHITUNG DI SERVER (7 jenis soal — lihat hitungHasil).
     var settings = getSettings(ss);
     var h = hitungHasil(soalList, petaJawaban, petaSkorEssay, settings.kkm);
     var waktuSubmit = sekarangISODateTime();
@@ -3555,7 +3600,7 @@ function susunRincian(ss, sesiRow, hasilRow) {
       bobot: soal.bobot,
       menungguPenilaian: r.menunggu
     };
-    if (soal.jenis === 'jodoh') {
+    if (soal.jenis === 'jodoh' || soal.jenis === 'grid') {
       item.pasanganKiri = soal.kiri.slice();
       item.pasanganKanan = soal.kanan.slice();
       item.kunciPasangan = soal.kunci;
@@ -3694,7 +3739,7 @@ function bangunAnalisisSiswa(ss, username) {
   for (var m = 0; m < rowsMapel.length; m++) {
     petaMapel[asString(rowsMapel[m][0])] = asString(rowsMapel[m][2]);
   }
-  var petaBank = {}; // soalId -> soal ter-parse (6 jenis)
+  var petaBank = {}; // soalId -> soal ter-parse (7 jenis)
   var rowsBank = readRows(ss.getSheetByName(SHEET_BANKSOAL));
   for (var b = 0; b < rowsBank.length; b++) {
     var psBank = parseSoalBankRow(rowsBank[b]);
@@ -3804,7 +3849,7 @@ function bangunAnalisisSiswa(ss, username) {
 /**
  * getAnalisisKelas 🔒 guru — statistik nilai (filter opsional paketId &
  * kelasId), distribusi, 5 teratas/terbawah, dan analisis butir soal bila
- * p.paketId diisi. Butir soal memakai aturan skoring 6 jenis soal:
+ * p.paketId diisi. Butir soal memakai aturan skoring 7 jenis soal:
  * `benar` = jawaban penuh (skor == bobot); essay yang belum dinilai
  * tidak dihitung sebagai dijawab.
  */

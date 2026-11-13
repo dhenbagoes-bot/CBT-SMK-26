@@ -1,7 +1,7 @@
 # Kontrak API — Backend wwn-cbt-madrasah-80 (CBT Digital — SMK Negeri 1 Juwangi)
 
 Backend: Google Apps Script + Google Sheets + Google Drive.
-Versi: `1.2.6` (`APP_VERSION` di `backend/Kode.gs`).
+Versi: `1.3.0` (`APP_VERSION` di `backend/Kode.gs`).
 Fork dari wwn-cbt-atm-80 v1.1.4 — yang baru di v1.0.0: sheet `JawabanSiswa`,
 6 jenis soal, token ujian statis, autosave + resume, penilaian essay manual,
 anti-bentrok jadwal, `durasiStandar` & `jedaGelombang` di Pengaturan.
@@ -18,7 +18,7 @@ ke URL `/exec` Web App. Respons SELALU memakai envelope:
 `doGet` (GET biasa, tanpa parameter) hanya mengembalikan info service:
 
 ```json
-{ "success": true, "data": { "service": "wwn-cbt-madrasah-80", "version": "1.2.6" } }
+{ "success": true, "data": { "service": "wwn-cbt-madrasah-80", "version": "1.3.0" } }
 ```
 
 **Pengecualian beacon**: `batalkanSesi` juga dipanggil via
@@ -133,7 +133,7 @@ Status hasil vs KKM (default 75, dari Pengaturan):
   `ambangPeringatan:'3'`, `wajibFullscreen:'1'`, `izinkanUlangSetelahBatal:'0'`,
   `kkm:'75'`, `durasiStandar:'60'`, `jedaGelombang:'3'`,
   `waAktif:'false'`, `waEndpoint:''`, `waApiKey:''`, `waTemplateProgres:'...'`
-- Jenjang: `SMK`, `SMA`, `MA`
+- Jenjang: `MA/SMA/SMK` (satu jenjang saja, v1.3.0)
 - Kelas (6, jenjang `JJG-SMK`): `7A`, `7B`, `8A`, `8B`, `9A`, `9B`
   (ID `KLS-7A` … `KLS-9B`)
 - Mapel: **TIDAK di-seed** (0 mapel — admin mengisi manual lewat form
@@ -147,7 +147,7 @@ Status hasil vs KKM (default 75, dari Pengaturan):
 ## Daftar action
 
 ### `ping` (publik)
-→ `{ success:true, data:{ version:"1.2.6", waktu:"yyyy-MM-dd HH:mm:ss" } }`
+→ `{ success:true, data:{ version:"1.3.0", waktu:"yyyy-MM-dd HH:mm:ss" } }`
 
 ### `login` (publik) `{ username, password }`
 Username case-insensitive; tolak jika `Aktif != 1`.
@@ -264,18 +264,20 @@ Pengguna/Paket).
   `openById` tidak bisa membukanya (koreksi atas klaim v1.2.3).
 - **Jika `FormApp` tidak tersedia** (mis. diuji di node) →
   `{ success:false, message:'Impor Google Form hanya bisa dijalankan di Apps Script.' }`.
-- Baca item (v1.2.5, v1.2.6): `MULTIPLE_CHOICE`/`LIST`/`CHECKBOX` → 2-5
-  opsi, >=1 kunci dari `choice.isCorrectAnswer()` (mode kuis), tidak semua
-  benar; 1 kunci → `pg`, >1 kunci → `pgk`. `PARAGRAPH_TEXT` → `essay`
-  (tanpa kunci, dinilai manual). `TEXT`/`GRID`/`CHECKBOX_GRID`/`SCALE`/
-  tanggal/waktu/tata letak → `dilewati` dengan alasan per jenis (Apps
-  Script tidak mengekspos kuncinya).
+- Baca item (v1.2.5, v1.2.6, v1.3.0): `MULTIPLE_CHOICE`/`LIST`/`CHECKBOX`
+  → 2-5 opsi, >=1 kunci dari `choice.isCorrectAnswer()` (mode kuis),
+  tidak semua benar; 1 kunci → `pg`, >1 kunci → `pgk`.
+  `PARAGRAPH_TEXT` → `essay` (tanpa kunci, dinilai manual). `GRID` →
+  `grid` (baris/kolom dari `getRows()`/`getColumns()`, kunci `-1` per
+  baris = belum diatur; `gridTanpaKunci` dihitung di respons).
+  `TEXT`/`CHECKBOX_GRID`/`SCALE`/tanggal/waktu/tata letak → `dilewati`
+  dengan alasan per jenis (Apps Script tidak mengekspos kuncinya).
 - Soal tanpa kunci yang jelas → `dilewati` (tidak diimpor diam-diam).
 - v1.2.3: soal duplikat (mapel+judul) → `dilewati` (idempotent); baris baru
   ditulis SATU `setValues`.
 - Bobot default 1; opsi E boleh kosong.
 
-→ `{ success:true, data:{ imported, dilewati:[{ judul, alasan }] } }`
+→ `{ success:true, data:{ imported, dilewati:[{ judul, alasan }], gridTanpaKunci } }`
 
 ### Paket — 🔒 guru (guru atau admin)
 `savePaket { id?, nama, jenjangId, mapelId, kelasIds?, modeSoal, soalIds?, jumlahAcak?, durasiMenit, mulai, selesai, acakSoal?, acakOpsi?, tampilSkor?, tampilPembahasan?, aktif?, tokenUjian?, jedaGelombang? }`

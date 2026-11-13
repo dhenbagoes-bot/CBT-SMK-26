@@ -1,4 +1,4 @@
-// Penilaian 6 jenis soal + helper murni lainnya — tanpa akses storage/API,
+// Penilaian 7 jenis soal + helper murni lainnya — tanpa akses storage/API,
 // agar bisa diuji dari node (test/frontend-logic.test.mjs).
 // CATATAN: nilai resmi SELALU dihitung server saat submit. Fungsi di sini
 // hanya untuk pratinjau lokal & test; tidak pernah dipakai menyimpan nilai.
@@ -64,7 +64,7 @@ export function uraiJawabanJodoh(jawaban) {
  *   benarDipilih / totalBenar; bila ada pilihan salah dipilih -> skor
  *   dikurangi proporsional: max(0, (benarDipilih - salahDipilih) / totalBenar)
  * - bs: 1 bila sama (case-insensitive), 0 bila salah/kosong
- * - jodoh: pasanganBenar / totalPasangan
+ * - jodoh/grid: pasanganBenar / totalPasangan
  * - isian: 1 bila cocok setelah normalisasi, 0 bila tidak/kosong
  * - essay: null (menunggu penilaian manual guru)
  */
@@ -98,7 +98,8 @@ export function skorSoal(soal, jawaban) {
                 return 0;
             return jwb.toLowerCase() === (soal.kunci || '').trim().toLowerCase() ? 1 : 0;
         }
-        case 'jodoh': {
+        case 'jodoh':
+        case 'grid': {
             const total = soal.pasanganKiri.length;
             if (total === 0)
                 return 0;
@@ -126,7 +127,7 @@ export function sudahDijawab(jenis, jawaban) {
     const jwb = (jawaban || '').trim();
     if (!jwb)
         return false;
-    if (jenis === 'jodoh')
+    if (jenis === 'jodoh' || jenis === 'grid')
         return uraiJawabanJodoh(jwb).size > 0;
     if (jenis === 'pgk')
         return uraiKunciPgk(jwb).size > 0;

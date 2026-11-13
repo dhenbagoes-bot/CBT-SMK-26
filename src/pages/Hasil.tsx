@@ -144,8 +144,8 @@ function HasilSiswa({ data, toast }: PageProps) {
                       );
                     })}
                   </div>
-                  {/* Jodoh / isian / essay tidak punya opsi: tampilkan jawaban & kunci sebagai teks. */}
-                  {r.opsi.length === 0 && r.jenis === 'jodoh' && r.pasanganKiri && r.pasanganKiri.length > 0 && (
+                  {/* Jodoh / grid / isian / essay tidak punya opsi: tampilkan jawaban & kunci sebagai teks. */}
+                  {r.opsi.length === 0 && (r.jenis === 'jodoh' || r.jenis === 'grid') && r.pasanganKiri && r.pasanganKiri.length > 0 && (
                     <div className="mt-2 space-y-1 text-sm">
                       {r.pasanganKiri.map((kiri, ki) => {
                         const petaJwb = uraiJawabanJodoh(r.jawabanSiswa || '');
@@ -166,7 +166,7 @@ function HasilSiswa({ data, toast }: PageProps) {
                       })}
                     </div>
                   )}
-                  {r.opsi.length === 0 && r.jenis !== 'jodoh' && (
+                  {r.opsi.length === 0 && r.jenis !== 'jodoh' && r.jenis !== 'grid' && (
                     <div className="mt-2 space-y-1 text-sm text-slate-600">
                       <p className="rounded-lg bg-slate-50 px-3 py-1.5">
                         <b>Jawaban Anda:</b>{' '}

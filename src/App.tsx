@@ -57,7 +57,7 @@ function normalisasiData(d: AllData): AllData {
     mapel: d.mapel || [],
     kelas: d.kelas || [],
     pengguna: d.pengguna || [],
-    // Soal lama (PG saja, opsiA–E) dinormalisasi ke 6 jenis soal.
+    // Soal lama (PG saja, opsiA–E) dinormalisasi ke 7 jenis soal.
     bankSoal: (d.bankSoal || []).map(normalisasiSoalBank),
     paket: (d.paket || []).map((p) => ({
       ...p,

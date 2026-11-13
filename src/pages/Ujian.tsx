@@ -1069,6 +1069,50 @@ function JawabanSoal({
     );
   }
 
+  if (soal.jenis === 'grid') {
+    const peta = uraiJawabanJodoh(nilai);
+    const kiri = soal.pasanganKiri || [];
+    const kanan = soal.pasanganKanan || [];
+    return (
+      <div className="overflow-x-auto">
+        <p className="mb-2 text-xs text-slate-400">Pilih satu kolom untuk tiap baris.</p>
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              <th className="border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800" />
+              {kanan.map((kan, j) => (
+                <th key={j} className="border border-slate-200 bg-slate-50 px-3 py-2 text-center font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  {kan}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {kiri.map((k, i) => (
+              <tr key={i}>
+                <td className="border border-slate-200 px-3 py-2 font-medium text-slate-800 dark:border-slate-700 dark:text-slate-200">
+                  {i + 1}. {k}
+                </td>
+                {kanan.map((_, j) => (
+                  <td key={j} className="border border-slate-200 px-3 py-2 text-center dark:border-slate-700">
+                    <input
+                      type="radio"
+                      name={`grid-${soal.id}-${i}`}
+                      checked={peta.get(i) === j}
+                      onChange={() => onUbahJodoh(i, j)}
+                      className="h-4 w-4 accent-violet-600"
+                      aria-label={`Baris ${i + 1}, kolom ${j + 1}`}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
   if (soal.jenis === 'isian') {
     return (
       <input

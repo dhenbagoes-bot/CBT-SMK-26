@@ -1,4 +1,4 @@
-# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.2.6
+# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.3.0
 
 Aplikasi ujian digital (CBT) khusus untuk SMK Negeri 1 Juwangi.
 Siswa mengerjakan ujian langsung dari browser (laptop & HP), guru mengelola bank soal &
@@ -83,6 +83,22 @@ ditentukan jumlah kunci: 1 kunci → PG, lebih dari 1 kunci → PG Kompleks
 berkunci 1 tidak berubah. **Wajib update backend + upload frontend**
 (seperti biasa; tidak perlu `initDatabase` ulang atau otorisasi ulang).
 
+**Yang baru di v1.3.0 (jenis soal Pilihan Ganda Grid + satu jenjang):**
+(1) Jenis soal ke-7, **Pilihan Ganda Grid** — matriks baris × kolom,
+nilai proporsional per baris benar; bisa dibuat di Bank Soal, lewat
+template Excel/txt/docx, dan diimpor dari petak pilihan ganda Google
+Form. Karena Google tidak mengizinkan script membaca kunci petak, soal
+grid hasil impor Form masuk **tanpa kunci** dan guru wajib mengatur
+kunci tiap baris di Bank Soal sebelum dipakai ujian (aplikasi memberi
+peringatan merah + label 'kunci belum diatur'). Petak kotak centang
+tetap dilewati. (2) Seed **satu jenjang saja: MA/SMA/SMK** — jenjang
+MTs/SMP tidak lagi di-seed; untuk database yang sudah berjalan, hapus
+jenjang MTs/SMP secara manual di Kelola Data → Jenjang setelah
+kelas/mapel/soal/paket yang memakainya dipindah/dihapus (aplikasi
+menolak menghapus jenjang yang masih dipakai). **Wajib update backend
++ upload frontend** (seperti biasa; tidak perlu `initDatabase` ulang
+atau otorisasi ulang).
+
 **Stack:** React 19 + Vite + TypeScript + Tailwind 4 (frontend, deploy di Vercel) •
 Google Apps Script + Google Sheets + Google Drive (backend, gratis, milik sekolah sendiri).
 
@@ -148,7 +164,7 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
    (Bila sudah terhubung, konfigurasi ada di **Pengaturan → Konfigurasi Backend**,
    khusus admin.)
 2. Tempel URL `/exec` ke kolom *URL Backend Manual* → **Simpan URL**.
-3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.2.6 ...`.
+3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.3.0 ...`.
 4. Klik **Inisialisasi Database** — membuat 12 sheet + akun bawaan
    `admin`/`admin123` dan `guru`/`guru123`, jenjang SMK/SMA/MA,
    6 kelas seed (7A, 7B, 8A, 8B, 9A, 9B),
@@ -196,7 +212,7 @@ Data di spreadsheet tidak ikut berubah — **jangan** jalankan
 3. Klik **Deploy → Manage deployments** → klik ikon pensil ✏️ pada deployment
    yang aktif → **Version: New version** → **Deploy**.
 4. Verifikasi: buka aplikasi → login admin → **Pengaturan → Konfigurasi
-   Backend → Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.2.6 ...`.
+   Backend → Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.3.0 ...`.
    Bila masih tertulis versi lama, tunggu 1–2 menit lalu uji lagi (cache
    deployment Google kadang lambat berubah).
 
@@ -237,9 +253,11 @@ Data di spreadsheet tidak ikut berubah — **jangan** jalankan
    (a) backend sudah otorisasi Forms (langkah A.6); (b) form memakai **mode
    kuis** dan tiap soal sudah punya **kunci jawaban** (diatur di form);
    (c) yang terimpor: **pilihan ganda, kotak centang, dropdown** (2–5 opsi;
-   1 kunci → PG, lebih dari 1 kunci → PG Kompleks) dan **paragraf**
-   (menjadi esai); isian singkat, petak, skala, dan tanggal/waktu
-   dilewati dengan alasan (kuncinya tidak bisa dibaca Apps Script);
+   1 kunci → PG, lebih dari 1 kunci → PG Kompleks), **paragraf** (menjadi
+   esai), dan **petak pilihan ganda** (menjadi Pilihan Ganda Grid TANPA
+   kunci — atur kunci di Bank Soal); isian singkat, petak kotak centang,
+   skala, dan tanggal/waktu dilewati dengan alasan (kuncinya tidak bisa
+   dibaca Apps Script);
    (d) tempel URL edit (`.../d/<ID>/edit`) atau ID mentah —
    link publikasi (`.../d/e/<ID>/viewform`) TIDAK bisa dipakai;
    (e) form harus bisa dibuka akun Google yang mendeploy backend (akun yang

@@ -193,6 +193,18 @@ uji('skorSoal Jodoh', () => {
   assert.deepEqual([...uraiJawabanJodoh('{"0":1,"1":0}').entries()], [[0, 1], [1, 0]]);
 });
 
+// --- 10b. skorSoal Grid: sama seperti jodoh, proporsional per baris (v1.3.0) ---
+uji('skorSoal Grid', () => {
+  const g = { jenis: 'grid', kunci: '', kunciJodoh: { 0: 0, 1: 1, 2: 0 }, pasanganKiri: ['a', 'b', 'c'] };
+  assert.equal(skorSoal(g, '{"0":0,"1":1,"2":0}'), 1);
+  assert.equal(skorSoal(g, '{"0":0,"1":0,"2":1}'), 1 / 3);
+  assert.equal(skorSoal(g, '{}'), 0);
+  assert.equal(skorSoal(g, 'bukan-json'), 0);
+  assert.equal(sudahDijawab('grid', '{"0":1}'), true);
+  assert.equal(sudahDijawab('grid', '{}'), false);
+  assert.equal(sudahDijawab('grid', ''), false);
+});
+
 // --- 11. skorSoal Isian: abaikan huruf & spasi ---
 uji('skorSoal Isian', () => {
   const is = { jenis: 'isian', kunci: 'Jakarta', kunciJodoh: {}, pasanganKiri: [] };

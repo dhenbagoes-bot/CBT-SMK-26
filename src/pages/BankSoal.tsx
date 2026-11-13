@@ -87,6 +87,15 @@ function kunciTampil(s: SoalBank): string {
       return s.kunci;
     case 'jodoh':
       return `${s.pasanganKiri.length} pasangan`;
+    case 'grid': {
+      // Soal grid hasil impor Form kuncinya -1 (belum diatur) sampai guru
+      // mengaturnya di editor — tandai jelas di daftar (v1.3.0).
+      const belum = s.pasanganKiri.some((_, i) => {
+        const k = s.kunciJodoh[i];
+        return k === undefined || k < 0 || k >= s.pasanganKanan.length;
+      });
+      return `${s.pasanganKiri.length} baris × ${s.pasanganKanan.length} kolom${belum ? ' — kunci belum diatur' : ''}`;
+    }
     case 'isian':
       return s.kunci;
     case 'essay':
@@ -185,6 +194,18 @@ export default function BankSoal({ data, toast, refreshData }: PageProps) {
       // (field `kunciJodoh` saja tidak cukup — dulu kunci '' sehingga
       // simpan jodoh selalu ditolak backend).
       kunci = kiri.map((_, i) => form.kunciJodoh[i] ?? i);
+    } else if (form.jenis === 'grid') {
+      const kiri = form.pasanganKiri.map((x) => x.trim()).filter(Boolean);
+      const kanan = form.pasanganKanan.map((x) => x.trim()).filter(Boolean);
+      if (kiri.length < 2 || kanan.length < 2) return toast('Pilihan Ganda Grid: isi minimal 2 baris dan 2 kolom.', 'error');
+      // Grid memperbolehkan jumlah baris != jumlah kolom (tidak seperti
+      // menjodohkan). Tiap baris WAJIB punya kunci kolom yang valid —
+      // kunci -1 (hasil impor Form) harus diatur dulu sebelum disimpan.
+      const kunciGrid = kiri.map((_, i) => form.kunciJodoh[i]);
+      if (kunciGrid.some((k) => k === undefined || k < 0 || k >= kanan.length)) {
+        return toast('Pilihan Ganda Grid: pilih kolom benar untuk tiap baris.', 'error');
+      }
+      kunci = kunciGrid as number[];
     } else if (form.jenis === 'isian') {
       if (!form.kunci.trim()) return toast('Kunci isian (teks jawaban) wajib diisi.', 'error');
       kunci = form.kunci.trim();
@@ -210,9 +231,9 @@ export default function BankSoal({ data, toast, refreshData }: PageProps) {
         opsiD: rest.opsiD,
         opsiE: rest.opsiE,
         kunci,
-        pasanganKiri: rest.jenis === 'jodoh' ? kiri : [],
-        pasanganKanan: rest.jenis === 'jodoh' ? kanan : [],
-        kunciJodoh: rest.jenis === 'jodoh' ? rest.kunciJodoh : {},
+        pasanganKiri: rest.jenis === 'jodoh' || rest.jenis === 'grid' ? kiri : [],
+        pasanganKanan: rest.jenis === 'jodoh' || rest.jenis === 'grid' ? kanan : [],
+        kunciJodoh: rest.jenis === 'jodoh' || rest.jenis === 'grid' ? rest.kunciJodoh : {},
         bobot: rest.bobot,
         pembahasan: rest.pembahasan,
         gambarUrl: rest.gambarUrl,
@@ -243,7 +264,7 @@ export default function BankSoal({ data, toast, refreshData }: PageProps) {
     <div>
       <PageHeader
         judul="Bank Soal"
-        subjudul={`${daftar.length} soal${fJenjang || fMapel || fJenis || cari ? ' (terfilter)' : ''} — 6 jenis soal.`}
+        subjudul={`${daftar.length} soal${fJenjang || fMapel || fJenis || cari ? ' (terfilter)' : ''} — 7 jenis soal.`}
         aksi={
           <>
             <Button varian="sekunder" onClick={() => setImporBuka(true)}>
@@ -426,6 +447,32 @@ function PreviewSoal({ form }: { form: FormSoal }) {
           ))}
         </div>
       )}
+      {form.jenis === 'grid' && (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className="border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800" />
+                {form.pasanganKanan.filter(Boolean).map((kan, j) => (
+                  <th key={j} className="border border-slate-200 bg-slate-50 px-3 py-2 text-center font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">{kan}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {form.pasanganKiri.filter(Boolean).map((kiri, i) => (
+                <tr key={i}>
+                  <td className="border border-slate-200 px-3 py-2 font-medium text-slate-800 dark:border-slate-700 dark:text-slate-200">{kiri}</td>
+                  {form.pasanganKanan.filter(Boolean).map((_, j) => (
+                    <td key={j} className="border border-slate-200 px-3 py-2 text-center dark:border-slate-700">
+                      <input type="radio" disabled className="h-4 w-4 accent-violet-600" aria-label={`Baris ${i + 1}, kolom ${j + 1}`} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {form.jenis === 'isian' && (
         <input disabled placeholder="Tulis jawaban singkat di sini…" className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm dark:border-slate-600 dark:bg-slate-900" />
       )}
@@ -479,10 +526,45 @@ function FormSoalModal({
     ubah(sisi, arr);
   };
   const tambahPasangan = () => {
+    // Satu setForm (tiga ubah berurutan hanya menerapkan yang terakhir
+    // karena ketiganya menyebar state lama yang sama — v1.3.0).
     const n = form.pasanganKiri.length;
-    ubah('pasanganKiri', [...form.pasanganKiri, '']);
+    setForm({
+      ...form,
+      pasanganKiri: [...form.pasanganKiri, ''],
+      pasanganKanan: [...form.pasanganKanan, ''],
+      kunciJodoh: { ...form.kunciJodoh, [n]: n },
+    });
+  };
+  // --- Grid (v1.3.0): baris & kolom dikelola terpisah, jumlah boleh beda.
+  const tambahBarisGrid = () => {
+    const n = form.pasanganKiri.length;
+    setForm({
+      ...form,
+      pasanganKiri: [...form.pasanganKiri, ''],
+      kunciJodoh: { ...form.kunciJodoh, [n]: -1 },
+    });
+  };
+  const hapusBarisGrid = (idx: number) => {
+    if (form.pasanganKiri.length <= 2) return toast('Minimal 2 baris.', 'error');
+    const kiri = form.pasanganKiri.filter((_, i) => i !== idx);
+    const kj: Record<number, number> = {};
+    kiri.forEach((_, i) => {
+      kj[i] = form.kunciJodoh[i < idx ? i : i + 1] ?? -1;
+    });
+    setForm({ ...form, pasanganKiri: kiri, kunciJodoh: kj });
+  };
+  const tambahKolomGrid = () => {
     ubah('pasanganKanan', [...form.pasanganKanan, '']);
-    ubah('kunciJodoh', { ...form.kunciJodoh, [n]: n });
+  };
+  const hapusKolomGrid = (idx: number) => {
+    if (form.pasanganKanan.length <= 2) return toast('Minimal 2 kolom.', 'error');
+    const kanan = form.pasanganKanan.filter((_, i) => i !== idx);
+    const kj: Record<number, number> = {};
+    Object.entries(form.kunciJodoh).forEach(([k, v]) => {
+      kj[Number(k)] = v === idx ? -1 : v > idx ? v - 1 : v;
+    });
+    setForm({ ...form, pasanganKanan: kanan, kunciJodoh: kj });
   };
   const hapusPasangan = (idx: number) => {
     if (form.pasanganKiri.length <= 2) return toast('Minimal 2 pasangan.', 'error');
@@ -685,6 +767,73 @@ function FormSoalModal({
           </div>
         )}
 
+        {form.jenis === 'grid' && (
+          <div>
+            <span className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Kolom (pilihan jawaban — sama untuk semua baris)
+            </span>
+            <div className="space-y-2">
+              {form.pasanganKanan.map((kan, j) => (
+                <div key={j} className="flex items-center gap-2">
+                  <TextInput
+                    value={kan}
+                    onChange={(e) => ubahPasangan('pasanganKanan', j, e.target.value)}
+                    placeholder={`Kolom ${j + 1}`}
+                  />
+                  <button
+                    onClick={() => hapusKolomGrid(j)}
+                    className="rounded-lg p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                    title="Hapus kolom"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <Button varian="sekunder" kecil onClick={tambahKolomGrid} className="mt-2">
+              <Plus className="h-3.5 w-3.5" /> Tambah Kolom
+            </Button>
+            <span className="mb-1.5 mt-4 block text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Baris &amp; kunci (pilih kolom benar untuk tiap baris)
+            </span>
+            <div className="space-y-2">
+              {form.pasanganKiri.map((kiri, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <TextInput
+                    value={kiri}
+                    onChange={(e) => ubahPasangan('pasanganKiri', i, e.target.value)}
+                    placeholder={`Baris ${i + 1}`}
+                  />
+                  <SelectInput
+                    value={form.kunciJodoh[i] ?? -1}
+                    onChange={(e) => ubah('kunciJodoh', { ...form.kunciJodoh, [i]: Number(e.target.value) })}
+                    className="w-44"
+                    title="Kolom benar untuk baris ini"
+                  >
+                    <option value={-1}>— pilih kolom benar —</option>
+                    {form.pasanganKanan.map((kan, j) => (
+                      <option key={j} value={j}>{kan || `Kolom ${j + 1}`}</option>
+                    ))}
+                  </SelectInput>
+                  <button
+                    onClick={() => hapusBarisGrid(i)}
+                    className="rounded-lg p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                    title="Hapus baris"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <Button varian="sekunder" kecil onClick={tambahBarisGrid} className="mt-2">
+              <Plus className="h-3.5 w-3.5" /> Tambah Baris
+            </Button>
+            <p className="mt-1 text-xs text-slate-400">
+              Jumlah baris boleh berbeda dengan jumlah kolom. Nilai proporsional per baris benar.
+            </p>
+          </div>
+        )}
+
         {form.jenis === 'isian' && (
           <Field label="Kunci jawaban (teks)">
             <TextInput
@@ -749,7 +898,7 @@ function ImporSoalModal({
   const [progresImpor, setProgresImpor] = useState('');
   const [formUrl, setFormUrl] = useState('');
   const [formLoading, setFormLoading] = useState(false);
-  const [hasilForm, setHasilForm] = useState<{ imported: number; dilewati: { judul: string; alasan: string }[] } | null>(null);
+  const [hasilForm, setHasilForm] = useState<{ imported: number; dilewati: { judul: string; alasan: string }[]; gridTanpaKunci?: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const mapelPilih = mapel.filter((m) => !jenjangId || m.jenjangId === jenjangId);
@@ -784,7 +933,7 @@ function ImporSoalModal({
         opsiC: b.item.opsiC || '',
         opsiD: b.item.opsiD || '',
         opsiE: b.item.opsiE,
-        kunci: b.item.jenis === 'jodoh'
+        kunci: b.item.jenis === 'jodoh' || b.item.jenis === 'grid'
           ? (b.item.pasanganKiri || []).map((_, i) => b.item.kunciJodoh?.[i] ?? i)
           : b.item.jenis === 'pg' || b.item.jenis === 'pgk'
             ? (b.item.kunci || '').toUpperCase()
@@ -848,7 +997,9 @@ function ImporSoalModal({
       setHasilForm(r);
       toast(`Impor dari Google Form: ${r.imported} soal masuk${r.dilewati.length ? `, ${r.dilewati.length} dilewati.` : '.'}`, 'sukses');
       await refreshData();
-      if (r.dilewati.length === 0) onTutup();
+      // Tetap tampilkan modal bila ada soal dilewati ATAU ada soal grid
+      // tanpa kunci, agar peringatannya terbaca sebelum modal ditutup.
+      if (r.dilewati.length === 0 && (r.gridTanpaKunci || 0) === 0) onTutup();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Impor dari Google Form gagal.', 'error');
     } finally {
@@ -870,7 +1021,7 @@ function ImporSoalModal({
       {tab === 'file' ? (
         <div className="space-y-4">
           <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800">
-            <p className="mb-2 text-sm font-bold text-slate-700 dark:text-slate-200">1. Unduh template (sudah ada contoh 6 jenis soal)</p>
+            <p className="mb-2 text-sm font-bold text-slate-700 dark:text-slate-200">1. Unduh template (sudah ada contoh 7 jenis soal)</p>
             <div className="flex flex-wrap gap-2">
               <Button varian="sekunder" kecil onClick={unduhTemplateTxt}>
                 <Download className="h-3.5 w-3.5" /> .txt (Notepad)
@@ -883,7 +1034,7 @@ function ImporSoalModal({
               </Button>
             </div>
             <p className="mt-2 text-xs text-slate-400">
-              Template memuat kolom Jenis (pg/pgk/bs/jodoh/isian/essay) + PasanganKiri/PasanganKanan/KunciJodoh untuk Menjodohkan.
+              Template memuat kolom Jenis (pg/pgk/bs/jodoh/grid/isian/essay) + PasanganKiri/PasanganKanan/KunciJodoh untuk Menjodohkan &amp; Pilihan Ganda Grid.
             </p>
           </div>
 
@@ -971,12 +1122,13 @@ function ImporSoalModal({
           <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
             Impor membaca soal dari Google Form (mode kuis — kunci diambil dari jawaban benar).
             Yang terbaca: pilihan ganda, kotak centang, dan dropdown — soal berkunci 1 menjadi
-            pilihan ganda, soal berkunci lebih dari 1 menjadi PG Kompleks — serta paragraf
-            (menjadi esai, dinilai manual). Isian singkat, petak,
-            skala, dan tanggal/waktu dilewati karena kuncinya tidak bisa dibaca Google — tambahkan
-            lewat Bank Soal atau template Excel. Tempel URL EDIT form (.../edit), bukan link
-            publikasi (/d/e/...). Backend perlu otorisasi Forms (<code>authorizeFormsAccess</code>) —
-            lihat README.
+            pilihan ganda, soal berkunci lebih dari 1 menjadi PG Kompleks — paragraf (menjadi
+            esai, dinilai manual), serta petak pilihan ganda (menjadi Pilihan Ganda Grid, tetapi
+            TANPA kunci — kunci petak tidak bisa dibaca Google, jadi atur kunci di Bank Soal
+            setelah impor). Isian singkat, petak kotak centang, skala, dan tanggal/waktu dilewati
+            karena kuncinya tidak bisa dibaca Google — tambahkan lewat Bank Soal atau template
+            Excel. Tempel URL EDIT form (.../edit), bukan link publikasi (/d/e/...). Backend perlu
+            otorisasi Forms (<code>authorizeFormsAccess</code>) — lihat README.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Jenjang tujuan">
@@ -1007,6 +1159,15 @@ function ImporSoalModal({
               Impor dari Google Form
             </Button>
           </div>
+          {hasilForm && (hasilForm.gridTanpaKunci || 0) > 0 && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
+              <p className="text-sm font-bold text-red-800 dark:text-red-200">
+                ⚠ {hasilForm.gridTanpaKunci} soal Pilihan Ganda Grid masuk TANPA kunci jawaban
+                (Google Form tidak mengizinkan script membaca kunci petak). Buka tiap soal grid
+                di Bank Soal, atur kolom benar tiap baris, lalu simpan — sebelum soal dipakai ujian.
+              </p>
+            </div>
+          )}
           {hasilForm && hasilForm.dilewati.length > 0 && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
               <p className="mb-2 text-sm font-bold text-amber-800 dark:text-amber-200">

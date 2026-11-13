@@ -337,4 +337,50 @@ const ITEM = {
   console.log('✓ ZIP deflate (Excel) + parseXlsxMapel/Siswa');
 }
 
+// --- 11. Grid: parse txt (BARIS/KOLOM/KUNCI) + validasi (v1.3.0) ---
+{
+  const teks = [
+    'JENIS: grid',
+    'SOAL: Tentukan benar atau salah.',
+    'KOLOM: Benar',
+    'KOLOM: Salah',
+    'BARIS: Matahari terbit dari timur.',
+    'BARIS: Air mendidih pada 50 derajat.',
+    'BARIS: Bumi mengelilingi Matahari.',
+    'KUNCI: 1-1,2-2,3-1',
+    'BOBOT: 3',
+    '',
+    'JENIS: grid',
+    'SOAL: Grid tanpa kunci.',
+    'KOLOM: Ya',
+    'KOLOM: Tidak',
+    'BARIS: Satu.',
+    'BARIS: Dua.',
+    '',
+    'JENIS: pilihan ganda grid',
+    'SOAL: Alias jenis grid.',
+    'KOLOM: A',
+    'KOLOM: B',
+    'BARIS: Satu.',
+    'BARIS: Dua.',
+    'KUNCI: 1-2,2-1',
+  ].join('\n');
+  const r = parseTxtSoal(teks);
+  assert.equal(r.baris.length, 3);
+  assert.equal(r.valid.length, 2);
+  const g = r.baris[0].item;
+  assert.equal(g.jenis, 'grid');
+  assert.deepEqual(g.pasanganKiri, ['Matahari terbit dari timur.', 'Air mendidih pada 50 derajat.', 'Bumi mengelilingi Matahari.']);
+  assert.deepEqual(g.pasanganKanan, ['Benar', 'Salah']);
+  assert.deepEqual(g.kunciJodoh, { 0: 0, 1: 1, 2: 0 });
+  assert.equal(g.bobot, 3);
+  assert.match(r.baris[1].galat, /kunci baris ke-1/i);
+  assert.equal(r.baris[2].item.jenis, 'grid');
+  // Validasi langsung: baris != kolom BOLEH; kunci wajib eksplisit.
+  assert.equal(validasiItemSoal({ soal: 'G', jenis: 'grid', pasanganKiri: ['a', 'b', 'c'], pasanganKanan: ['X', 'Y'], kunciJodoh: { 0: 0, 1: 1, 2: 0 } }, new Set()), '');
+  assert.match(validasiItemSoal({ soal: 'G', jenis: 'grid', pasanganKiri: ['a'], pasanganKanan: ['X', 'Y'], kunciJodoh: { 0: 0 } }, new Set()), /minimal 2 baris/);
+  assert.match(validasiItemSoal({ soal: 'G', jenis: 'grid', pasanganKiri: ['a', 'b'], pasanganKanan: ['X', 'Y'], kunciJodoh: {} }, new Set()), /kunci baris/);
+  console.log('✓ Grid: parse txt + validasi');
+}
+
 console.log('\nSemua uji impor-soal lolos.');
