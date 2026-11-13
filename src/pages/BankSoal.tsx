@@ -970,8 +970,9 @@ function ImporSoalModal({
         <div className="space-y-4">
           <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
             Impor membaca soal dari Google Form (mode kuis — kunci diambil dari jawaban benar).
-            Yang terbaca: pilihan ganda, kotak centang (menjadi PG Kompleks), dropdown (menjadi
-            pilihan ganda), dan paragraf (menjadi esai, dinilai manual). Isian singkat, petak,
+            Yang terbaca: pilihan ganda, kotak centang, dan dropdown — soal berkunci 1 menjadi
+            pilihan ganda, soal berkunci lebih dari 1 menjadi PG Kompleks — serta paragraf
+            (menjadi esai, dinilai manual). Isian singkat, petak,
             skala, dan tanggal/waktu dilewati karena kuncinya tidak bisa dibaca Google — tambahkan
             lewat Bank Soal atau template Excel. Tempel URL EDIT form (.../edit), bukan link
             publikasi (/d/e/...). Backend perlu otorisasi Forms (<code>authorizeFormsAccess</code>) —

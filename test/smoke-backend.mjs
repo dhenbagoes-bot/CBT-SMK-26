@@ -264,8 +264,8 @@ eq(sheetRows('Pengaturan').filter((x) => x[0] === 'namaSekolah').length, 1, 'kun
 
 console.log('\n[2] ping, doGet, aksi tak dikenal, LockService v1.1.0 (fine-grained)');
 r = post('ping');
-ok(r.success && r.data.version === '1.2.5' && !!r.data.waktu, 'ping -> version + waktu');
-eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.2.5' } }, 'doGet -> info service');
+ok(r.success && r.data.version === '1.2.6' && !!r.data.waktu, 'ping -> version + waktu');
+eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.2.6' } }, 'doGet -> info service');
 r = post('aksiTakDikenal');
 ok(!r.success && r.message === 'Aksi tidak dikenal: aksiTakDikenal', 'aksi tak dikenal -> message sesuai kontrak');
 // v1.1.0: kunci global dihapus — aksi BACA tidak boleh menyentuh LockService sama sekali
@@ -711,6 +711,14 @@ const fakeForm3 = {
     { getType: () => 'PAGE_BREAK', getTitle: () => '' },
   ],
 };
+// (v1.2.6) MC/dropdown berkunci ganda -> pgk; semua-benar tetap dilewati.
+const fakeForm4 = {
+  getItems: () => [
+    mcItem('Pilih 3 benar?', [['a', true], ['b', false], ['c', true], ['d', false], ['e', true]]),
+    mcItem('Semua benar MC?', [['A', true], ['B', true]]),
+    listItem('List 2 kunci?', [['X', true], ['Y', true], ['Z', false]]),
+  ],
+};
 const fakeFormApp = {
   ItemType: {
     MULTIPLE_CHOICE: 'MULTIPLE_CHOICE', CHECKBOX: 'CHECKBOX', LIST: 'LIST',
@@ -720,7 +728,7 @@ const fakeFormApp = {
     IMAGE: 'IMAGE', VIDEO: 'VIDEO', PAGE_BREAK: 'PAGE_BREAK',
     SECTION_HEADER: 'SECTION_HEADER',
   },
-  _forms: { form123: fakeForm, form456: fakeForm2, form789: fakeForm3 },
+  _forms: { form123: fakeForm, form456: fakeForm2, form789: fakeForm3, form999: fakeForm4 },
   openById(id) {
     if (id === 'noperm') throw new Error('You do not have permission to access the requested document.');
     const f = this._forms[id];
@@ -741,18 +749,20 @@ function post2(action, extra = {}) {
 }
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'https://docs.google.com/forms/d/form123/edit', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
 ok(r.success, 'importSoalDariForm via URL sukses');
-eq(r.data.imported, 2, 'imported=2 (2 MC valid)');
-eq(r.data.dilewati.length, 5, 'dilewati=5 (tanpa kunci, kunci ganda, text, 6 opsi, 1 opsi)');
+eq(r.data.imported, 3, 'imported=3 (2 MC + 1 MC kunci ganda -> pgk, v1.2.6)');
+eq(r.data.dilewati.length, 4, 'dilewati=4 (tanpa kunci, text, 6 opsi, 1 opsi)');
 {
   const alasan = r.data.dilewati.map((d) => d.judul + '|' + d.alasan).join(';');
-  ok(/Tanpa kunci/.test(alasan) && /Kunci ganda/.test(alasan) && /Isian singkat/.test(alasan), 'dilewati memuat judul + alasan');
+  ok(/Tanpa kunci/.test(alasan) && /Isian singkat/.test(alasan), 'dilewati memuat judul + alasan');
   const bank = sheetRows('BankSoal');
   const imp1 = bank.find((x) => x[3] === 'Ibukota Jawa Barat?');
   const imp2 = bank.find((x) => x[3] === 'Lima opsi kunci D?');
-  ok(!!imp1 && !!imp2, '2 soal dari form tersimpan di BankSoal');
+  const imp3 = bank.find((x) => x[3] === 'Kunci ganda?');
+  ok(!!imp1 && !!imp2 && !!imp3, '3 soal dari form tersimpan di BankSoal');
   eq([imp1[9], imp2[9]], ['A', 'D'], 'kunci dari isCorrectAnswer() benar');
   eq([imp1[10], imp2[10]], [1, 1], 'bobot default 1');
   eq([imp1[1], imp1[2]], ['JJG-SMK', MAPEL_MTS_1], 'jenjangId/mapelId tersimpan');
+  eq([imp3[15], imp3[9], imp3[17]], ['pgk', 'A,B', '[0,1]'], 'MC kunci ganda -> pgk (v1.2.6)');
 }
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'form123', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
 ok(r.success, 'ID mentah (tanpa URL) juga bisa');
@@ -780,6 +790,19 @@ eq([r.data.imported, r.data.dilewati.length], [3, 5], 'form789: imported=3 (pgk+
   ok(/Petak\?\|Petak: kunci per baris/.test(alasan), 'grid dilewati dengan alasan petak');
   ok(/Skala linear tidak didukung/.test(alasan), 'skala dilewati');
   ok(/Soal ke-8\|Bukan soal \(elemen tata letak\)/.test(alasan), 'page break dilewati sebagai tata letak');
+}
+// MC/dropdown berkunci ganda -> pgk (v1.2.6)
+r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'form999', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });
+ok(r.success, 'importSoalDariForm form999 sukses');
+eq([r.data.imported, r.data.dilewati.length], [2, 1], 'form999: imported=2 (2 pgk), dilewati=1 (semua-benar)');
+{
+  const bank = sheetRows('BankSoal');
+  const p3 = bank.find((x) => x[3] === 'Pilih 3 benar?');
+  const l2 = bank.find((x) => x[3] === 'List 2 kunci?');
+  ok(!!p3 && !!l2, '2 soal kunci ganda tersimpan');
+  eq([p3[15], p3[9], p3[17]], ['pgk', 'A,C,E', '[0,2,4]'], 'MC 3 kunci -> pgk A,C,E');
+  eq([l2[15], l2[9], l2[17]], ['pgk', 'A,B', '[0,1]'], 'list 2 kunci -> pgk');
+  ok(r.data.dilewati.some((d) => /Semua opsi ditandai benar/.test(d.alasan)), 'semua-benar tetap dilewati');
 }
 // Alasan lewati TEXT kini menjelaskan keterbatasan kunci (v1.2.5)
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'form123', jenjangId: 'JJG-SMK', mapelId: MAPEL_MTS_1 });

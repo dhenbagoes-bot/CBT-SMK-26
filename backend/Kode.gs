@@ -66,7 +66,7 @@
  *    SEGERA ganti kata sandi setelah inisialisasi!
  */
 
-var APP_VERSION = '1.2.5';
+var APP_VERSION = '1.2.6';
 
 // ============================================================
 // KONFIGURASI SHEET (satu sumber kebenaran untuk nama & header)
@@ -1964,9 +1964,9 @@ function actionImportSoalDariForm(ss, user, p) {
       var tipe = null;
       try { tipe = item.getType(); } catch (eT) {}
 
-      // --- Item pilihan berkunci (v1.2.5): PG dari MULTIPLE_CHOICE & LIST
-      // (dropdown), PG Kompleks dari CHECKBOX. Aturan PG tidak berubah:
-      // 2-5 opsi, tepat 1 kunci; PGK: 2-5 opsi, >=1 kunci, tidak semua benar.
+      // --- Item pilihan berkunci (v1.2.5, v1.2.6): 2-5 opsi, >=1 kunci,
+      // tidak semua benar. 1 kunci -> pg; >1 kunci -> pgk (berlaku untuk
+      // MULTIPLE_CHOICE, LIST, maupun CHECKBOX).
       if (tipe === TIPE_FORM.MULTIPLE_CHOICE || tipe === TIPE_FORM.LIST ||
           tipe === TIPE_FORM.CHECKBOX) {
         var asMethod = tipe === TIPE_FORM.MULTIPLE_CHOICE ? 'asMultipleChoiceItem'
@@ -1984,20 +1984,20 @@ function actionImportSoalDariForm(ss, user, p) {
           dilewati.push({ judul: judul, alasan: 'Tidak ada kunci jawaban (aktifkan mode kuis di Google Form).' });
           continue;
         }
+        // v1.2.6: jenis ditentukan JUMLAH kunci, bukan jenis item Form —
+        // soal pilihan ganda/dropdown yang kuncinya lebih dari 1 (mis.
+        // "Pilih 3 jawaban benar") diimpor sebagai PG Kompleks, bukan
+        // dilewati. PG berkunci 1 tetap menjadi pg seperti sebelumnya.
+        if (pil.benar.length >= pil.nilai.length) {
+          dilewati.push({ judul: judul, alasan: 'Semua opsi ditandai benar — sisakan minimal 1 opsi salah.' });
+          continue;
+        }
         var jenisSoal, kunciTampil, kunciJSON;
-        if (tipe === TIPE_FORM.CHECKBOX) {
-          if (pil.benar.length >= pil.nilai.length) {
-            dilewati.push({ judul: judul, alasan: 'Semua opsi ditandai benar — sisakan minimal 1 opsi salah.' });
-            continue;
-          }
+        if (pil.benar.length > 1) {
           jenisSoal = 'pgk';
           kunciTampil = pil.benar.map(function (ix) { return huruf[ix]; }).join(',');
           kunciJSON = JSON.stringify(pil.benar);
         } else {
-          if (pil.benar.length > 1) {
-            dilewati.push({ judul: judul, alasan: 'Lebih dari satu kunci jawaban.' });
-            continue;
-          }
           jenisSoal = 'pg';
           kunciTampil = huruf[pil.benar[0]];
           kunciJSON = JSON.stringify(kunciTampil);

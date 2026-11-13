@@ -1,4 +1,4 @@
-# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.2.5
+# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.2.6
 
 Aplikasi ujian digital (CBT) khusus untuk SMK Negeri 1 Juwangi.
 Siswa mengerjakan ujian langsung dari browser (laptop & HP), guru mengelola bank soal &
@@ -75,6 +75,14 @@ frontend** (cukup seperti biasa: tempel `Kode.gs` → New version; upload
 repo → Vercel redeploy; tidak perlu `initDatabase` ulang atau otorisasi
 ulang).
 
+**Yang baru di v1.2.6 (soal berkunci ganda dari Form):** soal pilihan
+ganda/dropdown yang kuncinya lebih dari 1 (mis. "Pilih 3 jawaban benar")
+kini diimpor sebagai **PG Kompleks**, bukan dilewati. Jenis hasil impor
+ditentukan jumlah kunci: 1 kunci → PG, lebih dari 1 kunci → PG Kompleks
+(berlaku untuk pilihan ganda, dropdown, maupun kotak centang). PG
+berkunci 1 tidak berubah. **Wajib update backend + upload frontend**
+(seperti biasa; tidak perlu `initDatabase` ulang atau otorisasi ulang).
+
 **Stack:** React 19 + Vite + TypeScript + Tailwind 4 (frontend, deploy di Vercel) •
 Google Apps Script + Google Sheets + Google Drive (backend, gratis, milik sekolah sendiri).
 
@@ -140,7 +148,7 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
    (Bila sudah terhubung, konfigurasi ada di **Pengaturan → Konfigurasi Backend**,
    khusus admin.)
 2. Tempel URL `/exec` ke kolom *URL Backend Manual* → **Simpan URL**.
-3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.2.5 ...`.
+3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.2.6 ...`.
 4. Klik **Inisialisasi Database** — membuat 12 sheet + akun bawaan
    `admin`/`admin123` dan `guru`/`guru123`, jenjang SMK/SMA/MA,
    6 kelas seed (7A, 7B, 8A, 8B, 9A, 9B),
@@ -188,7 +196,7 @@ Data di spreadsheet tidak ikut berubah — **jangan** jalankan
 3. Klik **Deploy → Manage deployments** → klik ikon pensil ✏️ pada deployment
    yang aktif → **Version: New version** → **Deploy**.
 4. Verifikasi: buka aplikasi → login admin → **Pengaturan → Konfigurasi
-   Backend → Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.2.5 ...`.
+   Backend → Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.2.6 ...`.
    Bila masih tertulis versi lama, tunggu 1–2 menit lalu uji lagi (cache
    deployment Google kadang lambat berubah).
 
@@ -228,11 +236,11 @@ Data di spreadsheet tidak ikut berubah — **jangan** jalankan
    Atau: *Google Form* → tempel URL/ID form kuis → Impor. Syarat impor Form:
    (a) backend sudah otorisasi Forms (langkah A.6); (b) form memakai **mode
    kuis** dan tiap soal sudah punya **kunci jawaban** (diatur di form);
-   (c) yang terimpor: **pilihan ganda** (2–5 opsi, tepat 1 kunci), **kotak
-   centang** (menjadi PG Kompleks), **dropdown** (menjadi pilihan ganda),
-   dan **paragraf** (menjadi esai); isian singkat, petak, skala, dan
-   tanggal/waktu dilewati dengan alasan (kuncinya tidak bisa dibaca
-   Apps Script); (d) tempel URL edit (`.../d/<ID>/edit`) atau ID mentah —
+   (c) yang terimpor: **pilihan ganda, kotak centang, dropdown** (2–5 opsi;
+   1 kunci → PG, lebih dari 1 kunci → PG Kompleks) dan **paragraf**
+   (menjadi esai); isian singkat, petak, skala, dan tanggal/waktu
+   dilewati dengan alasan (kuncinya tidak bisa dibaca Apps Script);
+   (d) tempel URL edit (`.../d/<ID>/edit`) atau ID mentah —
    link publikasi (`.../d/e/<ID>/viewform`) TIDAK bisa dipakai;
    (e) form harus bisa dibuka akun Google yang mendeploy backend (akun yang
    sama, atau form dibagikan ke akun itu). Impor ulang form yang sama aman —
