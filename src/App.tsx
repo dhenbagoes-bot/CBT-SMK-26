@@ -12,6 +12,7 @@ import AnalisisSaya from './pages/AnalisisSaya';
 import AnalisisKelas from './pages/AnalisisKelas';
 import Laporan from './pages/Laporan';
 import KelolaData from './pages/KelolaData';
+import DataSiswa from './pages/DataSiswa';
 import JenisUjian from './pages/JenisUjian';
 import KartuPeserta from './pages/KartuPeserta';
 import { LogPembaruan, Petunjuk, Tentang } from './pages/Info';
@@ -60,7 +61,12 @@ function normalisasiData(d: AllData): AllData {
     jenisUjian: d.jenisUjian || [],
     mapel: d.mapel || [],
     kelas: d.kelas || [],
-    pengguna: d.pengguna || [],
+    pengguna: (d.pengguna || []).map((p) => ({
+      ...p,
+      // v1.5.0: backend lama belum mengirim ruang/terakhirLogin — default ''.
+      ruang: p.ruang || '',
+      terakhirLogin: p.terakhirLogin || '',
+    })),
     // Soal lama (PG saja, opsiA–E) dinormalisasi ke 7 jenis soal.
     bankSoal: (d.bankSoal || []).map(normalisasiSoalBank),
     paket: (d.paket || []).map((p) => ({
@@ -359,7 +365,9 @@ export default function App() {
       case 'data-kelas':
         return <KelolaData {...props} key="data-kelas" tabAwal="kelas" />;
       case 'data-siswa':
-        return <KelolaData {...props} key="data-siswa" tabAwal="pengguna" filterPeranAwal="siswa" />;
+        // v1.5.0: halaman Data Siswa sendiri (daftar ala referensi + generate
+        // password massal), bukan lagi deep-link tab Pengguna Kelola Data.
+        return <DataSiswa {...props} key="data-siswa" />;
       case 'data-guru':
         return <KelolaData {...props} key="data-guru" tabAwal="pengguna" filterPeranAwal="guru" />;
       case 'mapel':

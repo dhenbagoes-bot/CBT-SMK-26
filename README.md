@@ -1,4 +1,4 @@
-# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.4.0
+# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.5.0
 
 Aplikasi ujian digital (CBT) khusus untuk SMK Negeri 1 Juwangi.
 Siswa mengerjakan ujian langsung dari browser (laptop & HP), guru mengelola bank soal &
@@ -99,6 +99,27 @@ menolak menghapus jenjang yang masih dipakai). **Wajib update backend
 + upload frontend** (seperti biasa; tidak perlu `initDatabase` ulang
 atau otorisasi ulang).
 
+**Yang baru di v1.5.0 (Data Siswa baru + generate password massal — BACKEND
+DAN FRONTEND, update backend via New Version; TIDAK perlu initDatabase ulang):**
+(1) Menu **Data Siswa** tampil seperti referensi: kolom ID, No Peserta (NIS),
+Username, Nama Siswa, Kelas, Ruang, Password, dan Aksi; tombol Impor, Ekspor,
+Password, Cetak Kartu, dan Tambah Siswa; filter "Tampilkan 10/25/50/100 data",
+filter kelas, tab Semua / Sudah login / Belum login (dengan hitungan), kolom
+pencarian, header tabel bisa diklik untuk mengurutkan, dan paginasi. (2)
+Tombol **Password**: generate password massal dalam sekali proses — (a)
+password SAMA untuk banyak siswa, atau (b) password ACAK berbeda per siswa
+(6/8 karakter, angka saja atau huruf+angka). Hasilnya tampil sekali di layar
+dan bisa disalin/diunduh Excel — password tersimpan terenkripsi (SHA-256 +
+garam) sehingga tidak bisa ditampilkan lagi setelahnya. Ceklis dulu bila hanya
+sebagian siswa yang ingin diganti; tanpa ceklis, yang diganti adalah semua
+siswa yang sedang tampil sesuai filter. Tombol ganti password per siswa juga
+ada di kolom Aksi. (3) **Ruang** ujian siswa: kolom baru di sheet `Pengguna`,
+bisa diisi lewat form, impor Excel (kolom `Ruang`), dan tampil di kartu
+peserta. (4) **Status login** tercatat otomatis setiap siswa berhasil masuk
+(kolom `TerakhirLogin`); siswa yang belum pernah login sejak update tampil
+"Belum login". Sheet lama (13 kolom) dimigrasikan otomatis saat login/simpan
+pertama — data lama tidak hilang dan tidak perlu `initDatabase` ulang.
+
 **Yang baru di v1.4.0 (menu baru + Jenis Ujian + Cetak Kartu Peserta — BACKEND
 DAN FRONTEND, update backend via New Version; TIDAK perlu initDatabase ulang):**
 (1) Menu disusun ulang berkelompok seperti referensi: **Data Master** (Data
@@ -192,7 +213,7 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
    (Bila sudah terhubung, konfigurasi ada di **Pengaturan → Konfigurasi Backend**,
    khusus admin.)
 2. Tempel URL `/exec` ke kolom *URL Backend Manual* → **Simpan URL**.
-3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.4.0 ...`.
+3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.5.0 ...`.
 4. Klik **Inisialisasi Database** — membuat 12 sheet + akun bawaan
    `admin`/`admin123` dan `guru`/`guru123`, jenjang SMK/SMA/MA,
    6 kelas seed (7A, 7B, 8A, 8B, 9A, 9B),
@@ -240,7 +261,7 @@ Data di spreadsheet tidak ikut berubah — **jangan** jalankan
 3. Klik **Deploy → Manage deployments** → klik ikon pensil ✏️ pada deployment
    yang aktif → **Version: New version** → **Deploy**.
 4. Verifikasi: buka aplikasi → login admin → **Pengaturan → Konfigurasi
-   Backend → Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.4.0 ...`.
+   Backend → Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.5.0 ...`.
    Bila masih tertulis versi lama, tunggu 1–2 menit lalu uji lagi (cache
    deployment Google kadang lambat berubah).
 

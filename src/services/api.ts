@@ -8,6 +8,7 @@ import type {
   HasilImpor,
   HasilImporMapel,
   HasilKirimNotifikasi,
+  HasilPasswordMassal,
   HasilSubmit,
   HasilUjian,
   JawabanKirim,
@@ -108,6 +109,7 @@ const AKSI_BOLEH_RETRY = new Set([
   'ping', 'login', 'getAllData', 'getSesi', 'mulaiSesi', 'batalkanSesi', 'submitJawaban',
   'simpanJawaban', 'getJawabanSesi',
   'importSiswa', // idempotent via upsert NIS -> aman di-retry per batch
+  'setPasswordMassal', // v1.5.0: idempotent (timpa hash yang sama) -> aman di-retry per batch
   'importMapel', // idempotent: duplikat (jenjang+nama) dilewati -> aman di-retry
   'importSoal', // idempotent: soal duplikat (mapel+teks) dilewati -> aman di-retry
   'importSoalDariForm', // idempotent sejak v1.2.3: duplikat dilewati -> aman di-retry
@@ -351,6 +353,8 @@ export interface SavePenggunaParams {
   aktif?: number;
   /** No. WA orang tua (khusus siswa). */
   noHP?: string;
+  /** Ruang ujian (khusus siswa, v1.5.0). */
+  ruang?: string;
 }
 
 export function savePengguna(item: SavePenggunaParams): Promise<{ id: string }> {
@@ -363,6 +367,17 @@ export function deletePengguna(id: string): Promise<unknown> {
 
 export function resetPassword(id: string, passwordBaru: string): Promise<unknown> {
   return api('resetPassword', { id, passwordBaru });
+}
+
+/**
+ * Generate password massal (v1.5.0, admin): satu request untuk banyak siswa.
+ * Password dibuat frontend (sama / acak per siswa); backend hanya meng-hash.
+ * Kirim per batch 100 seperti impor agar request tidak terlalu besar.
+ */
+export function setPasswordMassal(
+  items: { id: string; password: string }[]
+): Promise<HasilPasswordMassal> {
+  return api('setPasswordMassal', { items });
 }
 
 export function importSiswa(rows: BarisSiswa[]): Promise<HasilImpor> {

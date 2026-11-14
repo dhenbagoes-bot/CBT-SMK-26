@@ -1,7 +1,7 @@
 # Kontrak API — Backend wwn-cbt-madrasah-80 (CBT Digital — SMK Negeri 1 Juwangi)
 
 Backend: Google Apps Script + Google Sheets + Google Drive.
-Versi: `1.4.0` (`APP_VERSION` di `backend/Kode.gs`).
+Versi: `1.5.0` (`APP_VERSION` di `backend/Kode.gs`).
 Fork dari wwn-cbt-atm-80 v1.1.4 — yang baru di v1.0.0: sheet `JawabanSiswa`,
 6 jenis soal, token ujian statis, autosave + resume, penilaian essay manual,
 anti-bentrok jadwal, `durasiStandar` & `jedaGelombang` di Pengaturan.
@@ -18,7 +18,7 @@ ke URL `/exec` Web App. Respons SELALU memakai envelope:
 `doGet` (GET biasa, tanpa parameter) hanya mengembalikan info service:
 
 ```json
-{ "success": true, "data": { "service": "wwn-cbt-madrasah-80", "version": "1.4.0" } }
+{ "success": true, "data": { "service": "wwn-cbt-madrasah-80", "version": "1.5.0" } }
 ```
 
 **Pengecualian beacon**: `batalkanSesi` juga dipanggil via
@@ -53,12 +53,12 @@ ke URL `/exec` Web App. Respons SELALU memakai envelope:
   `mulaiSesi` (sesi AKTIF yang sudah ada dikembalikan, bukan dibuat baru) —
   sehingga retry frontend tidak menimbulkan duplikat.
 
-## Sheet (12)
+## Sheet (13)
 
 | Sheet | Header |
 |---|---|
 | Pengaturan | Kunci, Nilai |
-| Pengguna | ID, Nama, Username, PasswordHash, PasswordSalt, Peran, NIS, JenjangID, KelasID, Token, TokenKedaluwarsa, Aktif, NoHP |
+| Pengguna | ID, Nama, Username, PasswordHash, PasswordSalt, Peran, NIS, JenjangID, KelasID, Token, TokenKedaluwarsa, Aktif, NoHP, Ruang, TerakhirLogin |
 | Jenjang | ID, Nama, DibuatPada |
 | Mapel | ID, JenjangID, Nama, DibuatPada |
 | Kelas | ID, JenjangID, Nama, DibuatPada |
@@ -148,7 +148,7 @@ Status hasil vs KKM (default 75, dari Pengaturan):
 ## Daftar action
 
 ### `ping` (publik)
-→ `{ success:true, data:{ version:"1.4.0", waktu:"yyyy-MM-dd HH:mm:ss" } }`
+→ `{ success:true, data:{ version:"1.5.0", waktu:"yyyy-MM-dd HH:mm:ss" } }`
 
 ### `login` (publik) `{ username, password }`
 Username case-insensitive; tolak jika `Aktif != 1`.
@@ -203,7 +203,7 @@ database lama tidak wajib menjalankan `initDatabase` ulang.
 → simpan: `{ success:true, data:{ id } }` · hapus: `{ success:true }`
 
 ### Pengguna — 🔒🔒 khusus admin
-`savePengguna { id?, nama, username, peran, password?, nis?, jenjangId?, kelasId?, noHP?, aktif? }`
+`savePengguna { id?, nama, username, peran, password?, nis?, jenjangId?, kelasId?, noHP?, ruang?, aktif? }`
 - `username` unik (case-insensitive); `peran` ∈ admin/guru/siswa.
 - `password` kosong saat tambah → default: peran siswa → = NIS;
   admin/guru → tolak ("password wajib diisi").
@@ -211,15 +211,31 @@ database lama tidak wajib menjalankan `initDatabase` ulang.
 - `nis` wajib untuk peran siswa; `jenjangId`+`kelasId` wajib untuk siswa.
 - `noHP` (kolom ke-13): No. WA orang tua; juga dikembalikan di objek
   pengguna publik `penggunaKePublik`.
+- `ruang` (kolom ke-14, v1.5.0): ruang ujian siswa; hanya disimpan untuk
+  peran siswa (peran lain → dikosongkan). Objek publik ikut membawa
+  `ruang` dan `terakhirLogin` (kolom ke-15, dicatat saat `login`
+  berhasil; `''` = belum pernah login sejak v1.5.0). Baris lama
+  (13 kolom) terbaca `''` di kedua field; header dimigrasikan otomatis
+  saat login/savePengguna/importSiswa pertama — tanpa `initDatabase` ulang.
 
 `deletePengguna { id }` (tolak hapus akun sendiri / admin terakhir),
 `resetPassword { id, passwordBaru }` 🔒🔒.
 → `{ success:true, data:{ id } }`
 
-`importSiswa` 🔒🔒 `{ rows:[{ nama, nis, kelas, jenjang?, username?, password?, noHP? }] }`
+`setPasswordMassal` 🔒🔒 (v1.5.0) `{ items:[{ id, password }] }` — generate
+password banyak siswa sekaligus: password SAMA (frontend mengirim password
+yang sama untuk semua item) atau ACAK (frontend mengirim password berbeda
+per item; backend hanya meng-hash SHA-256 + garam baru per siswa dan
+mengosongkan token). Hanya akun siswa; item gagal (id tak dikenal, bukan
+siswa, password kosong) dilaporkan per item tanpa membatalkan yang lain.
+Idempotent — aman di-retry per batch 100.
+→ `{ success:true, data:{ diubah, gagal:[{ id, pesan }] } }`
+
+`importSiswa` 🔒🔒 `{ rows:[{ nama, nis, kelas, jenjang?, username?, password?, noHP?, ruang? }] }`
 - `nama`, `nis`, `kelas` (nama kelas) wajib per baris → selain itu `errors`.
 - Kolom opsional `noHP` / `NoHP` / `No HP` (No. WA orang tua): ikut tersimpan;
   saat UPDATE duplikat NIS, NoHP hanya ditimpa bila kolom diisi.
+- Kolom opsional `ruang` / `Ruang` (v1.5.0): aturan yang sama seperti NoHP.
 - Duplikat = `nis` sama (case-insensitive) → UPDATE (nama/kelas/akun).
 - Kelas dicocokkan by nama (case-insensitive) pada jenjang yang disebut
   (atau jenjang pertama yang punya kelas tsb); tak ketemu → error baris.

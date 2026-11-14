@@ -236,6 +236,30 @@ const ITEM = {
   console.log('✓ parseXlsxSiswa');
 }
 
+// --- 8b. parseXlsxSiswa membaca kolom Ruang (v1.5.0); file lama tanpa Ruang tetap valid ---
+{
+  const data: string[][] = [
+    ['Nama', 'NIS', 'Kelas', 'Jenjang', 'Username', 'Password', 'NoHP', 'Ruang'],
+    ['Ahmad', '123', '9A', 'SMK', '', '', '', 'R1'],
+    ['Siti', '124', '9A', '', 'siti', 'rahasia', '0812', ''],
+  ];
+  const buf = buatXlsx([{ nama: 'Siswa', data }]).buffer as ArrayBuffer;
+  const r = await parseXlsxSiswa(buf);
+  assert.equal(r.valid.length, 2);
+  assert.equal(r.valid[0].ruang, 'R1', 'kolom Ruang terbaca');
+  assert.equal(r.valid[1].ruang, '', 'Ruang kosong -> string kosong');
+  // File lama tanpa kolom Ruang: ruang default '' dan baris tetap valid.
+  const lama: string[][] = [
+    ['Nama', 'NIS', 'Kelas'],
+    ['Budi', '125', '9A'],
+  ];
+  const bufLama = buatXlsx([{ nama: 'Siswa', data: lama }]).buffer as ArrayBuffer;
+  const rLama = await parseXlsxSiswa(bufLama);
+  assert.equal(rLama.valid.length, 1);
+  assert.equal(rLama.valid[0].ruang, '');
+  console.log('✓ parseXlsxSiswa kolom Ruang');
+}
+
 // --- 9. parseFileSoal memilih parser dari ekstensi ---
 {
   const txt = 'SOAL: S?\nA: a\nB: b\nC: c\nD: d\nKUNCI: A\n';

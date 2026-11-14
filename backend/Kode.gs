@@ -67,7 +67,7 @@
  *    SEGERA ganti kata sandi setelah inisialisasi!
  */
 
-var APP_VERSION = '1.4.0';
+var APP_VERSION = '1.5.0';
 
 // ============================================================
 // KONFIGURASI SHEET (satu sumber kebenaran untuk nama & header)
@@ -95,7 +95,7 @@ var HEADERS = {};
 HEADERS[SHEET_PENGATURAN] = ['Kunci', 'Nilai'];
 HEADERS[SHEET_PENGGUNA] = ['ID', 'Nama', 'Username', 'PasswordHash',
   'PasswordSalt', 'Peran', 'NIS', 'JenjangID', 'KelasID', 'Token',
-  'TokenKedaluwarsa', 'Aktif', 'NoHP'];
+  'TokenKedaluwarsa', 'Aktif', 'NoHP', 'Ruang', 'TerakhirLogin'];
 HEADERS[SHEET_JENJANG] = ['ID', 'Nama', 'DibuatPada'];
 HEADERS[SHEET_MAPEL] = ['ID', 'JenjangID', 'Nama', 'DibuatPada'];
 HEADERS[SHEET_KELAS] = ['ID', 'JenjangID', 'Nama', 'DibuatPada'];
@@ -496,7 +496,9 @@ function penggunaKePublik(r) {
   return {
     id: asString(r[0]), nama: asString(r[1]), username: asString(r[2]),
     peran: asString(r[5]), nis: asString(r[6]), jenjangId: asString(r[7]),
-    kelasId: asString(r[8]), aktif: asInt(r[11], 1), noHP: asString(r[12])
+    kelasId: asString(r[8]), aktif: asInt(r[11], 1), noHP: asString(r[12]),
+    // Kolom 14–15 (v1.5.0): baris lama (13 kolom) terbaca '' — aman.
+    ruang: asString(r[13]), terakhirLogin: asString(r[14])
   };
 }
 
@@ -661,7 +663,7 @@ function doPost(e) {
           initializeAllSheets(ss);
           return {
             success: true,
-            message: '12 sheet database berhasil diinisialisasi.',
+            message: '13 sheet database berhasil diinisialisasi.',
             data: { sheets: SEMUA_SHEET.slice() }
           };
         });
@@ -735,6 +737,10 @@ function doPost(e) {
       case 'resetPassword':
         return denganAuth(ss, payload, 'admin', function () {
           return denganKunci(function () { return actionResetPassword(ss, payload); });
+        });
+      case 'setPasswordMassal':
+        return denganAuth(ss, payload, 'admin', function () {
+          return denganKunci(function () { return actionSetPasswordMassal(ss, payload); });
         });
       case 'importSiswa':
         return denganAuth(ss, payload, 'admin', function () {
@@ -883,12 +889,26 @@ function pastikanHeader(sheet, name) {
   try { sheet.setFrozenRows(1); } catch (e) {}
 }
 
+/**
+ * Migrasi header Pengguna (v1.5.0): sheet lama hanya punya 13 kolom
+ * (tanpa 'Ruang'/'TerakhirLogin') karena initDatabase TIDAK dijalankan
+ * ulang saat update backend. Sebelum menulis kolom 14/15, pastikan label
+ * headernya ada — kolom 1–13 tidak disentuh. Baris lama yang lebih pendek
+ * terbaca '' di kolom baru (asString(undefined) = ''), jadi aman.
+ */
+function pastikanKolomPengguna(sheet) {
+  var header = sheet.getRange(1, 1, 1, 15).getValues()[0];
+  if (asString(header[13]) !== 'Ruang' || asString(header[14]) !== 'TerakhirLogin') {
+    sheet.getRange(1, 14, 1, 2).setValues([['Ruang', 'TerakhirLogin']]);
+  }
+}
+
 function seedAkun(ss, id, nama, username, password, peran) {
   var sheet = ss.getSheetByName(SHEET_PENGGUNA);
   if (findRowNum(sheet, 3, username) >= 0) return; // sudah ada -> idempotent
   var salt = Utilities.getUuid();
   sheet.appendRow([id, nama, username, hashPassword(password, salt), salt,
-    peran, '', '', '', '', '', 1, '']);
+    peran, '', '', '', '', '', 1, '', '', '']);
 }
 
 function seedJenjang(ss, id, nama) {
@@ -996,6 +1016,13 @@ function actionLogin(ss, username, password) {
       var token = Utilities.getUuid();
       sheet.getRange(i + 2, 10).setValue(token);
       sheet.getRange(i + 2, 11).setValue(Date.now() + TOKEN_MASA_BERLAKU_MS);
+      // v1.5.0: catat waktu login terakhir (kolom 15) untuk tab
+      // "Sudah login / Belum login" di Data Siswa. Dibungkus try/catch
+      // sendiri — login TIDAK BOLEH gagal hanya karena pencatatan ini.
+      try {
+        pastikanKolomPengguna(sheet);
+        sheet.getRange(i + 2, 15).setValue(sekarangISODateTime());
+      } catch (eLogin) {}
       return {
         success: true,
         message: 'Login berhasil. Selamat datang, ' + asString(r[1]) + '!',
@@ -1347,6 +1374,7 @@ function actionSavePengguna(ss, p) {
     var jenjangId = asString(p.jenjangId);
     var kelasId = asString(p.kelasId);
     var noHP = asString(p.noHP);
+    var ruang = asString(p.ruang); // v1.5.0: ruang ujian siswa (kolom 14)
     var id = asString(p.id);
 
     if (!nama) return { success: false, message: 'Nama wajib diisi.' };
@@ -1374,6 +1402,7 @@ function actionSavePengguna(ss, p) {
     }
 
     var sheet = ss.getSheetByName(SHEET_PENGGUNA);
+    pastikanKolomPengguna(sheet); // v1.5.0: sheet lama belum punya kolom 14/15
     if (id) {
       // --- update ---
       var rowNum = findRowNum(sheet, 1, id);
@@ -1392,6 +1421,9 @@ function actionSavePengguna(ss, p) {
         nama, username, hashBaru, saltBaru, peran, nis, jenjangId, kelasId,
         asString(lama[9]), asString(lama[10]), aktif, noHP
       ]]);
+      // Kolom 14 (Ruang) ditulis terpisah — kolom 15 (TerakhirLogin)
+      // TIDAK PERNAH ditimpa dari form (hanya login yang mencatatnya).
+      sheet.getRange(rowNum, 14).setValue(peran === 'siswa' ? ruang : '');
       return { success: true, message: 'Pengguna berhasil diubah.', data: { id: id } };
     }
 
@@ -1403,7 +1435,8 @@ function actionSavePengguna(ss, p) {
     var salt = Utilities.getUuid();
     var baru = Utilities.getUuid();
     sheet.appendRow([baru, nama, username, hashPassword(password, salt), salt,
-      peran, nis, jenjangId, kelasId, '', '', 1, noHP]);
+      peran, nis, jenjangId, kelasId, '', '', 1, noHP,
+      peran === 'siswa' ? ruang : '', '']);
     return { success: true, message: 'Pengguna berhasil disimpan.', data: { id: baru } };
   } catch (err) {
     return { success: false, error: 'savePengguna: ' + err.message };
@@ -1461,6 +1494,69 @@ function actionResetPassword(ss, p) {
 }
 
 /**
+ * Generate password massal untuk siswa (v1.5.0, admin saja) — dipakai
+ * tombol "Password" di Data Siswa: (1) password SAMA untuk banyak siswa
+ * dalam sekali generate, atau (2) password ACAK berbeda per siswa.
+ * Frontend yang menghasilkan passwordnya; backend hanya meng-hash
+ * (SHA-256 + garam baru per siswa, persis seperti resetPassword) dan
+ * mengosongkan token agar siswa login ulang dengan password baru.
+ * Idempotent: mengirim items yang sama dua kali menghasilkan keadaan
+ * akhir yang sama (aman di-retry per batch).
+ * Payload: { items: [{ id, password }] }.
+ * Hasil: { diubah, gagal: [{ id, pesan }] } — item yang gagal TIDAK
+ * membatalkan item lain; password TIDAK PERNAH dikembalikan/dilog.
+ */
+function actionSetPasswordMassal(ss, p) {
+  try {
+    var items = p && p.items;
+    if (!Array.isArray(items) || items.length === 0) {
+      return { success: false, message: 'Daftar siswa kosong.' };
+    }
+    var sheet = ss.getSheetByName(SHEET_PENGGUNA);
+    if (!sheet) return { success: false, message: 'Database belum diinisialisasi.' };
+    // Satu kali baca: peta id -> {rowNum, peran} agar 1000 siswa tidak
+    // memicu 1000x baca sheet (pola yang sama seperti importSiswa).
+    var rows = readRows(sheet);
+    var peta = {};
+    for (var i = 0; i < rows.length; i++) {
+      var idRow = asString(rows[i][0]);
+      if (idRow) peta[idRow] = { rowNum: i + 2, peran: asString(rows[i][5]) };
+    }
+    var diubah = 0;
+    var gagal = [];
+    for (var j = 0; j < items.length; j++) {
+      var it = items[j] || {};
+      var id = asString(it.id);
+      var password = it.password === undefined || it.password === null
+        ? '' : String(it.password);
+      if (!id) { gagal.push({ id: '', pesan: 'ID siswa kosong.' }); continue; }
+      var target = peta[id];
+      if (!target) { gagal.push({ id: id, pesan: 'Siswa tidak ditemukan.' }); continue; }
+      if (target.peran !== 'siswa') {
+        gagal.push({ id: id, pesan: 'Hanya akun siswa yang bisa diganti password massal.' });
+        continue;
+      }
+      if (!password || !password.trim()) {
+        gagal.push({ id: id, pesan: 'Password baru kosong.' });
+        continue;
+      }
+      var salt = Utilities.getUuid();
+      sheet.getRange(target.rowNum, 4, 1, 2).setValues([[hashPassword(password, salt), salt]]);
+      sheet.getRange(target.rowNum, 10, 1, 2).setValues([['', '']]);
+      diubah++;
+    }
+    return {
+      success: true,
+      message: 'Password massal selesai: ' + diubah + ' diubah' +
+        (gagal.length ? ', ' + gagal.length + ' gagal.' : '.'),
+      data: { diubah: diubah, gagal: gagal }
+    };
+  } catch (err) {
+    return { success: false, error: 'setPasswordMassal: ' + err.message };
+  }
+}
+
+/**
  * Cari kelas berdasarkan NAMA (case-insensitive). Jika namaJenjang diberikan,
  * cari pada jenjang itu; jika tidak, ambil kelas pertama yang namanya cocok.
  * Mengembalikan {id, jenjangId, nama} atau null.
@@ -1497,6 +1593,7 @@ function actionImportSiswa(ss, rows) {
     // readRows() di setiap baris (O(n^2)) sehingga 1000 siswa butuh waktu
     // bermenit-menit dan request putus ("Failed to fetch").
     var sheet = ss.getSheetByName(SHEET_PENGGUNA);
+    pastikanKolomPengguna(sheet); // v1.5.0: sheet lama belum punya kolom 14/15
     var semuaRows = readRows(sheet);
     var petaNis = {};       // nisLower -> {rowNum, row}
     var petaUsername = {};  // usernameLower -> id
@@ -1525,7 +1622,7 @@ function actionImportSiswa(ss, rows) {
       }
     }
 
-    var antreBaru = []; // matrix 13 kolom -> SATU setValues di akhir
+    var antreBaru = []; // matrix 15 kolom -> SATU setValues di akhir
     for (var i = 0; i < rows.length; i++) {
       var baris = i + 1;
       var nama = asString(rows[i] && rows[i].nama);
@@ -1541,6 +1638,11 @@ function actionImportSiswa(ss, rows) {
         ri.noHP !== undefined && ri.noHP !== null ? ri.noHP :
         (ri['NoHP'] !== undefined && ri['NoHP'] !== null ? ri['NoHP'] :
           (ri['No HP'] !== undefined && ri['No HP'] !== null ? ri['No HP'] : ''))
+      );
+      // v1.5.0: kolom opsional 'ruang' / 'Ruang' (ruang ujian siswa).
+      var ruang = asString(
+        ri.ruang !== undefined && ri.ruang !== null ? ri.ruang :
+        (ri['Ruang'] !== undefined && ri['Ruang'] !== null ? ri['Ruang'] : '')
       );
       if (!nama) { hasil.errors.push({ baris: baris, pesan: 'Nama wajib diisi.' }); continue; }
       if (!nis) { hasil.errors.push({ baris: baris, pesan: 'NIS wajib diisi.' }); continue; }
@@ -1576,6 +1678,7 @@ function actionImportSiswa(ss, rows) {
           sheet.getRange(rn, 2, 1, 2).setValues([[nama, usernameAkhir]]);
           sheet.getRange(rn, 7, 1, 3).setValues([[nis, kelas.jenjangId, kelas.id]]);
           if (noHP) sheet.getRange(rn, 13).setValue(noHP); // hanya timpa bila diisi
+          if (ruang) sheet.getRange(rn, 14).setValue(ruang); // hanya timpa bila diisi
           if (password) sheet.getRange(rn, 4, 1, 2).setValues([[hashU, saltU]]);
         } else {
           // Masih antre di batch ini -> update matrix-nya saja
@@ -1583,6 +1686,7 @@ function actionImportSiswa(ss, rows) {
           br[1] = nama; br[2] = usernameAkhir;
           br[7] = nis; br[8] = kelas.jenjangId; br[9] = kelas.id;
           if (noHP) br[12] = noHP;
+          if (ruang) br[13] = ruang;
           if (password) { br[3] = hashU; br[4] = saltU; }
         }
         petaUsername[unKey] = asString(adaNis.row[0]);
@@ -1598,7 +1702,7 @@ function actionImportSiswa(ss, rows) {
         var idxBaru = antreBaru.length;
         antreBaru.push([idBaru, nama, usernameAkhir,
           hashPassword(passAkhir, salt), salt, 'siswa',
-          nis, kelas.jenjangId, kelas.id, '', '', 1, noHP]);
+          nis, kelas.jenjangId, kelas.id, '', '', 1, noHP, ruang, '']);
         petaNis[nisKey] = { rowNum: -1, antreIdx: idxBaru, row: [idBaru] };
         petaUsername[unKey] = idBaru;
         hasil.imported++;
@@ -1606,7 +1710,7 @@ function actionImportSiswa(ss, rows) {
     }
     // Tulis batch SEKALIGUS (jauh lebih cepat dari 1000x appendRow)
     if (antreBaru.length > 0) {
-      sheet.getRange(sheet.getLastRow() + 1, 1, antreBaru.length, 13).setValues(antreBaru);
+      sheet.getRange(sheet.getLastRow() + 1, 1, antreBaru.length, 15).setValues(antreBaru);
     }
     return {
       success: true,

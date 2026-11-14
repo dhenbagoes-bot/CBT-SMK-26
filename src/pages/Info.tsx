@@ -2,11 +2,21 @@ import { Card, PageHeader } from '../components/ui';
 import type { PageProps } from './PageProps';
 
 /** Versi aplikasi yang sedang berjalan — samakan dengan package.json tiap rilis. */
-export const VERSI_APLIKASI = '1.4.0';
+export const VERSI_APLIKASI = '1.5.0';
 
 // ================= LOG PEMBARUAN =================
 
 const RIWAYAT: { versi: string; tanggal: string; poin: string[] }[] = [
+  {
+    versi: '1.5.0',
+    tanggal: '14 Nov 2026',
+    poin: [
+      'Data Siswa baru: No Peserta (NIS), Kelas, Ruang, filter kelas, tab Sudah/Belum login, cari, urutkan, dan paginasi.',
+      'Generate password massal: password sama untuk banyak siswa, atau password acak berbeda per siswa — hasil bisa disalin/diunduh.',
+      'Ruang ujian siswa: bisa diisi di form, impor Excel, dan tampil di kartu peserta.',
+      'Status login tercatat otomatis setiap siswa masuk.',
+    ],
+  },
   {
     versi: '1.4.0',
     tanggal: '14 Nov 2026',

@@ -72,6 +72,10 @@ export interface Pengguna {
   aktif: number;
   /** No. WA orang tua (khusus siswa). */
   noHP: string;
+  /** Ruang ujian siswa (v1.5.0, opsional) — '' bila belum diisi. */
+  ruang: string;
+  /** Waktu login terakhir 'yyyy-MM-dd HH:mm:ss' (v1.5.0) — '' = belum pernah login sejak v1.5.0. */
+  terakhirLogin: string;
 }
 
 export interface SoalBank {
@@ -413,6 +417,8 @@ export interface BarisSiswa {
   password?: string;
   /** No. WA orang tua. */
   noHP?: string;
+  /** Ruang ujian (v1.5.0, opsional). */
+  ruang?: string;
 }
 
 export interface BarisSoalImpor {
@@ -448,6 +454,12 @@ export interface HasilImporMapel {
   imported: number;
   dilewati: number;
   errors: { baris: number; pesan: string }[];
+}
+
+/** Hasil setPasswordMassal (v1.5.0): item gagal tidak membatalkan yang lain. */
+export interface HasilPasswordMassal {
+  diubah: number;
+  gagal: { id: string; pesan: string }[];
 }
 
 // ---------- Analisis nilai & notifikasi ----------

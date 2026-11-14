@@ -97,6 +97,7 @@ interface FormPengguna {
   nis: string;
   jenjangId: string;
   kelasId: string;
+  ruang: string;
   noHP: string;
   aktif: boolean;
 }
@@ -109,6 +110,7 @@ const FP_KOSONG: FormPengguna = {
   nis: '',
   jenjangId: '',
   kelasId: '',
+  ruang: '',
   noHP: '',
   aktif: true,
 };
@@ -152,6 +154,7 @@ function TabPengguna({ data, toast, refreshData, user, filterPeranAwal }: Pick<P
       nis: p.nis || '',
       jenjangId: p.jenjangId || '',
       kelasId: p.kelasId || '',
+      ruang: p.ruang || '',
       noHP: p.noHP || '',
       aktif: p.aktif === 1,
     });
@@ -177,6 +180,7 @@ function TabPengguna({ data, toast, refreshData, user, filterPeranAwal }: Pick<P
         nis: form.nis.trim(),
         jenjangId: form.jenjangId,
         kelasId: form.kelasId,
+        ruang: form.ruang.trim(),
         noHP: form.noHP.trim(),
         aktif: form.aktif ? 1 : 0,
       });
@@ -314,7 +318,12 @@ function TabPengguna({ data, toast, refreshData, user, filterPeranAwal }: Pick<P
                   <td className={tdCls}>
                     <Badge warna={p.peran === 'admin' ? 'ungu' : p.peran === 'guru' ? 'biru' : 'abu'}>{p.peran}</Badge>
                   </td>
-                  <td className={tdCls}>{p.peran === 'siswa' ? namaKelas(p.kelasId) : '-'}</td>
+                  <td className={tdCls}>
+                    {p.peran === 'siswa' ? namaKelas(p.kelasId) : '-'}
+                    {p.peran === 'siswa' && p.ruang && (
+                      <p className="text-xs text-slate-400">Ruang {p.ruang}</p>
+                    )}
+                  </td>
                   <td className={tdCls}>{p.aktif === 1 ? <Badge warna="hijau">Aktif</Badge> : <Badge warna="merah">Nonaktif</Badge>}</td>
                   <td className={tdCls}>
                     <div className="flex gap-1">
@@ -390,6 +399,13 @@ function TabPengguna({ data, toast, refreshData, user, filterPeranAwal }: Pick<P
                     </SelectInput>
                   </Field>
                 </div>
+                <Field label="Ruang (opsional)">
+                  <TextInput
+                    value={form.ruang}
+                    onChange={(e) => ubah('ruang', e.target.value)}
+                    placeholder="cth: R1"
+                  />
+                </Field>
               </>
             )}
             <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
@@ -434,7 +450,8 @@ function TabPengguna({ data, toast, refreshData, user, filterPeranAwal }: Pick<P
 
 // ================= IMPOR SISWA =================
 
-function TabImporSiswa({ toast, refreshData }: Pick<PageProps, 'toast' | 'refreshData'>) {
+/** Panel impor siswa — dipakai tab Impor Siswa & modal Impor di Data Siswa (v1.5.0). */
+export function TabImporSiswa({ toast, refreshData }: Pick<PageProps, 'toast' | 'refreshData'>) {
   const [baris, setBaris] = useState<BarisSiswaImpor[]>([]);
   const [parseLoading, setParseLoading] = useState(false);
   const [imporLoading, setImporLoading] = useState(false);
@@ -468,6 +485,7 @@ function TabImporSiswa({ toast, refreshData }: Pick<PageProps, 'toast' | 'refres
         username: (b.item.username || '').trim() || undefined,
         password: (b.item.password || '').trim() || undefined,
         noHP: (b.item.noHP || '').trim() || undefined,
+        ruang: (b.item.ruang || '').trim() || undefined,
       }));
     if (rows.length === 0) return toast('Tidak ada baris valid.', 'error');
     setImporLoading(true);
@@ -507,7 +525,7 @@ function TabImporSiswa({ toast, refreshData }: Pick<PageProps, 'toast' | 'refres
           <Download className="h-3.5 w-3.5" /> Template Impor Siswa (.xlsx)
         </Button>
         <p className="mt-2 text-xs text-slate-400">
-          Kolom: Nama | NIS | Kelas | Jenjang | Username | Password | NoHP (No. WA orang tua). NIS duplikat = data diperbarui.
+          Kolom: Nama | NIS | Kelas | Jenjang | Username | Password | NoHP (No. WA orang tua) | Ruang. NIS duplikat = data diperbarui.
         </p>
       </Card>
       <Card>

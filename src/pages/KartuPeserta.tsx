@@ -101,6 +101,7 @@ export default function KartuPeserta({ data, toast }: PageProps) {
                       <th className={thCls}>Nama</th>
                       <th className={thCls}>NIS</th>
                       <th className={thCls}>Kelas</th>
+                      <th className={thCls}>Ruang</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -110,6 +111,7 @@ export default function KartuPeserta({ data, toast }: PageProps) {
                         <td className={tdCls}>{p.nama}</td>
                         <td className={tdCls}>{p.nis || '-'}</td>
                         <td className={tdCls}>{namaKelas(p.kelasId)}</td>
+                        <td className={tdCls}>{p.ruang || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -144,6 +146,12 @@ export default function KartuPeserta({ data, toast }: PageProps) {
                     <dt className="text-slate-500">Kelas</dt>
                     <dd className="text-right font-semibold">{namaKelas(p.kelasId)}</dd>
                   </div>
+                  {p.ruang && (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-slate-500">Ruang</dt>
+                      <dd className="text-right font-semibold">{p.ruang}</dd>
+                    </div>
+                  )}
                   <div className="flex justify-between gap-3">
                     <dt className="text-slate-500">Mapel</dt>
                     <dd className="text-right font-semibold">{namaMapel}</dd>

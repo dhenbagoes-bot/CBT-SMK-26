@@ -5,6 +5,7 @@
 // getAllData (filter per peran — siswa tak pernah terima kunci),
 // master Jenjang/Mapel/Kelas (+tolak hapus bila dipakai),
 // Pengguna (CRUD, validasi, hapus diri/admin-terakhir, reset password,
+// setPasswordMassal + Ruang + TerakhirLogin v1.5.0, migrasi sheet lama 13 kolom,
 // importSiswa duplikat->update), BankSoal (validasi, hapus-dipakai,
 // importSoal, importSoalDariForm + guard FormApp), Paket (validasi lengkap),
 // Sesi (mulai idempotent+acak, get, batalkan idempotent/beacon, peringatan
@@ -226,7 +227,7 @@ let r = post('initDatabase');
 ok(r.success, 'initDatabase sukses');
 eq(r.data.sheets, ['Pengaturan', 'Pengguna', 'Jenjang', 'Mapel', 'Kelas', 'BankSoal', 'Paket', 'SesiUjian', 'JawabanSiswa', 'Hasil', 'LogAktivitas', 'Notifikasi', 'JenisUjian'], 'data.sheets = 13 nama sheet');
 eq(sheets.size, 13, '13 sheet dibuat');
-eq(sheetRows('Pengguna')[0], ['ID', 'Nama', 'Username', 'PasswordHash', 'PasswordSalt', 'Peran', 'NIS', 'JenjangID', 'KelasID', 'Token', 'TokenKedaluwarsa', 'Aktif', 'NoHP'], 'header Pengguna (13 kolom)');
+eq(sheetRows('Pengguna')[0], ['ID', 'Nama', 'Username', 'PasswordHash', 'PasswordSalt', 'Peran', 'NIS', 'JenjangID', 'KelasID', 'Token', 'TokenKedaluwarsa', 'Aktif', 'NoHP', 'Ruang', 'TerakhirLogin'], 'header Pengguna (15 kolom, v1.5.0)');
 eq(sheetRows('Notifikasi')[0], ['ID', 'Waktu', 'Username', 'NamaSiswa', 'NoHP', 'Jenis', 'Isi', 'Status'], 'header Notifikasi (8 kolom)');
 eq(sheetRows('BankSoal')[0], ['ID', 'JenjangID', 'MapelID', 'Soal', 'OpsiA', 'OpsiB', 'OpsiC', 'OpsiD', 'OpsiE', 'Kunci', 'Bobot', 'Pembahasan', 'GambarUrl', 'DibuatPada', 'DibuatOleh', 'Jenis', 'OpsiJSON', 'KunciJSON', 'Tingkat', 'KelasID'], 'header BankSoal (20 kolom)');
 eq(sheetRows('Paket')[0], ['ID', 'Nama', 'JenjangID', 'MapelID', 'KelasIDsJSON', 'ModeSoal', 'SoalIDsJSON', 'JumlahAcak', 'DurasiMenit', 'Mulai', 'Selesai', 'AcakSoal', 'AcakOpsi', 'TampilSkor', 'TampilPembahasan', 'Aktif', 'DibuatPada', 'DibuatOleh', 'Token', 'JedaGelombang', 'JenisUjianId'], 'header Paket (21 kolom, v1.4.0)');
@@ -273,8 +274,8 @@ eq(sheetRows('Pengaturan').filter((x) => x[0] === 'namaSekolah').length, 1, 'kun
 
 console.log('\n[2] ping, doGet, aksi tak dikenal, LockService v1.1.0 (fine-grained)');
 r = post('ping');
-ok(r.success && r.data.version === '1.4.0' && !!r.data.waktu, 'ping -> version + waktu');
-eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.4.0' } }, 'doGet -> info service');
+ok(r.success && r.data.version === '1.5.0' && !!r.data.waktu, 'ping -> version + waktu');
+eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.5.0' } }, 'doGet -> info service');
 r = post('aksiTakDikenal');
 ok(!r.success && r.message === 'Aksi tidak dikenal: aksiTakDikenal', 'aksi tak dikenal -> message sesuai kontrak');
 // v1.1.0: kunci global dihapus — aksi BACA tidak boleh menyentuh LockService sama sekali
@@ -328,6 +329,7 @@ const aksiSemuaPeran = [
   ['saveJenisUjian', { nama: 'X' }], ['deleteJenisUjian', { id: 'x' }],
   ['saveMapel', { nama: 'X' }], ['saveKelas', { nama: 'X' }],
   ['savePengguna', { nama: 'X' }], ['deletePengguna', { id: 'x' }], ['resetPassword', { id: 'x', passwordBaru: 'y' }],
+  ['setPasswordMassal', { items: [] }],
   ['importSiswa', { rows: [] }], ['saveSoal', {}], ['deleteSoal', { id: 'x' }],
   ['importSoal', {}], ['importSoalDariForm', {}], ['savePaket', {}], ['deletePaket', { id: 'x' }],
   ['mulaiSesi', { paketId: 'x' }], ['getSesi', { sesiId: 'x' }], ['batalkanSesi', { sesiId: 'x' }],
@@ -539,6 +541,131 @@ ok(r.success, 'siswa impor bisa login dengan NIS/NIS');
 r = post('login', { username: '1001', password: 'andi999' });
 ok(r.success, 'username hasil update = NIS; password custom dari impor berlaku');
 const TOKEN_ANDI2 = r.data.token;
+
+console.log('\n[7b] setPasswordMassal + Ruang + TerakhirLogin (v1.5.0)');
+// --- otorisasi: guru & siswa ditolak, admin saja ---
+r = post('setPasswordMassal', { token: TOKEN_GURU3, items: [{ id: 'x', password: 'abc123' }] });
+ok(!r.success && /admin/i.test(r.message), 'setPasswordMassal guru ditolak (khusus admin)');
+r = post('setPasswordMassal', { token: TOKEN_BUDI, items: [{ id: 'x', password: 'abc123' }] });
+ok(!r.success && /admin/i.test(r.message), 'setPasswordMassal siswa ditolak (khusus admin)');
+r = post('setPasswordMassal', { token: TOKEN_ADMIN, items: [] });
+ok(!r.success && /kosong/i.test(r.message), 'setPasswordMassal items kosong ditolak');
+r = post('setPasswordMassal', { token: TOKEN_ADMIN, items: 'bukan-array' });
+ok(!r.success && /kosong/i.test(r.message), 'setPasswordMassal items bukan array ditolak');
+// --- siswa baru dengan Ruang ---
+r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Sari', username: 'sari', peran: 'siswa', nis: '3001', jenjangId: 'JJG-SMA', kelasId: KELAS_7A, ruang: 'R1' });
+ok(r.success && !!r.data.id, 'savePengguna Sari dengan ruang R1');
+const ID_SARI = r.data.id;
+r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Tono', username: 'tono', peran: 'siswa', nis: '3002', jenjangId: 'JJG-SMA', kelasId: KELAS_7A, ruang: 'R2' });
+ok(r.success && !!r.data.id, 'savePengguna Tono dengan ruang R2');
+const ID_TONO = r.data.id;
+r = post('getAllData', { token: TOKEN_ADMIN });
+{
+  const sari = r.data.pengguna.find((p) => p.username === 'sari');
+  const tono = r.data.pengguna.find((p) => p.username === 'tono');
+  eq(sari.ruang, 'R1', 'getAllData: ruang Sari = R1');
+  eq(tono.ruang, 'R2', 'getAllData: ruang Tono = R2');
+  eq(sari.terakhirLogin, '', 'siswa baru belum pernah login -> terakhirLogin kosong');
+}
+// --- password SAMA untuk banyak siswa ---
+r = post('setPasswordMassal', { token: TOKEN_ADMIN, items: [{ id: ID_SARI, password: 'sama123' }, { id: ID_TONO, password: 'sama123' }] });
+eq([r.data.diubah, r.data.gagal.length], [2, 0], 'setPasswordMassal sama: diubah=2, gagal=0');
+r = post('login', { username: 'sari', password: '3001' });
+ok(!r.success, 'password lama (NIS) Sari tidak berlaku setelah massal');
+r = post('login', { username: 'sari', password: 'sama123' });
+ok(r.success, 'password sama berlaku untuk Sari');
+const TOKEN_SARI = r.data.token;
+r = post('login', { username: 'tono', password: 'sama123' });
+ok(r.success, 'password sama berlaku untuk Tono');
+// --- login mencatat TerakhirLogin; edit ruang mempertahankannya ---
+r = post('getAllData', { token: TOKEN_ADMIN });
+{
+  const sari = r.data.pengguna.find((p) => p.username === 'sari');
+  ok(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(sari.terakhirLogin), 'login mencatat terakhirLogin berformat datetime');
+}
+r = post('savePengguna', { token: TOKEN_ADMIN, id: ID_SARI, nama: 'Sari', username: 'sari', peran: 'siswa', nis: '3001', jenjangId: 'JJG-SMA', kelasId: KELAS_7A, ruang: 'R3' });
+ok(r.success, 'edit siswa: ruang R1 -> R3');
+r = post('getAllData', { token: TOKEN_ADMIN });
+{
+  const sari = r.data.pengguna.find((p) => p.username === 'sari');
+  eq(sari.ruang, 'R3', 'ruang ter-UPDATE lewat savePengguna');
+  ok(!!sari.terakhirLogin, 'edit form TIDAK menghapus terakhirLogin');
+}
+r = post('login', { username: 'sari', password: 'sama123' });
+ok(r.success, 'edit tanpa password mempertahankan password');
+// Login di atas memutar token Sari (satu token per akun) — pakai token
+// terbaru untuk uji "token dihapus saat password massal diubah".
+const TOKEN_SARI2 = r.data.token;
+// --- token lama dihapus saat password massal diubah ---
+r = post('getAllData', { token: TOKEN_SARI2 });
+ok(r.success, 'token Sari valid sebelum ganti massal kedua');
+r = post('setPasswordMassal', { token: TOKEN_ADMIN, items: [{ id: ID_SARI, password: 'baru999' }] });
+eq(r.data.diubah, 1, 'setPasswordMassal satu siswa sukses');
+r = post('getAllData', { token: TOKEN_SARI2 });
+ok(!r.success && r.message === PESAN_SESI, 'token lama tidak berlaku setelah password massal');
+// --- password ACAK berbeda per siswa ---
+r = post('setPasswordMassal', { token: TOKEN_ADMIN, items: [{ id: ID_SARI, password: 'acak111' }, { id: ID_TONO, password: 'acak222' }] });
+eq(r.data.diubah, 2, 'setPasswordMassal acak: diubah=2');
+r = post('login', { username: 'sari', password: 'acak111' });
+ok(r.success, 'password acak Sari berlaku');
+r = post('login', { username: 'sari', password: 'acak222' });
+ok(!r.success, 'password acak Tono TIDAK berlaku untuk Sari');
+r = post('login', { username: 'tono', password: 'acak222' });
+ok(r.success, 'password acak Tono berlaku');
+// --- kegagalan per item tidak membatalkan yang lain ---
+{
+  const idxGuru = findGridRow('Pengguna', 3, 'guru');
+  const idGuru = sheetRows('Pengguna')[idxGuru][0];
+  // Catat hash + token guru SEBELUM: setPasswordMassal tidak boleh
+  // menyentuh akun guru (jangan login ulang sebagai guru di sini —
+  // login memutar token dan merusak TOKEN_GURU3 untuk seksi berikutnya).
+  const hashGuruSebelum = sheetRows('Pengguna')[idxGuru][3];
+  const tokenGuruSebelum = sheetRows('Pengguna')[idxGuru][9];
+  r = post('setPasswordMassal', {
+    token: TOKEN_ADMIN,
+    items: [
+      { id: 'id-tidak-ada', password: 'x12345' },
+      { id: idGuru, password: 'x12345' },
+      { id: ID_SARI, password: '' },
+      { id: ID_TONO, password: 'campur777' },
+    ],
+  });
+  eq([r.data.diubah, r.data.gagal.length], [1, 3], 'campuran: diubah=1, gagal=3');
+  ok(r.data.gagal.some((g) => /tidak ditemukan/i.test(g.pesan)), 'gagal: id tak dikenal dilaporkan');
+  ok(r.data.gagal.some((g) => /hanya akun siswa/i.test(g.pesan)), 'gagal: guru ditolak (khusus siswa)');
+  ok(r.data.gagal.some((g) => /kosong/i.test(g.pesan)), 'gagal: password kosong dilaporkan');
+  r = post('login', { username: 'tono', password: 'campur777' });
+  ok(r.success, 'item valid tetap berubah walau item lain gagal');
+  eq(sheetRows('Pengguna')[idxGuru][3], hashGuruSebelum, 'hash password guru TIDAK ikut berubah');
+  eq(sheetRows('Pengguna')[idxGuru][9], tokenGuruSebelum, 'token guru TIDAK ikut dihapus');
+}
+// --- importSiswa: Ruang ikut tersimpan & aturan update ---
+r = post('importSiswa', { token: TOKEN_ADMIN, rows: [{ nama: 'Udin', nis: '3003', kelas: '7A', ruang: 'R5' }] });
+eq([r.data.imported, r.data.updated], [1, 0], 'importSiswa baris baru dengan ruang');
+eq(sheetRows('Pengguna').find((x) => x[6] === '3003')[13], 'R5', 'ruang impor tersimpan di kolom 14');
+r = post('importSiswa', { token: TOKEN_ADMIN, rows: [{ nama: 'Udin', nis: '3003', kelas: '7A', ruang: 'R6' }] });
+eq([r.data.imported, r.data.updated], [0, 1], 'importSiswa duplikat NIS -> update');
+eq(sheetRows('Pengguna').find((x) => x[6] === '3003')[13], 'R6', 'update impor menimpa ruang bila diisi');
+r = post('importSiswa', { token: TOKEN_ADMIN, rows: [{ nama: 'Udin', nis: '3003', kelas: '7A' }] });
+eq(sheetRows('Pengguna').find((x) => x[6] === '3003')[13], 'R6', 'update impor tanpa ruang mempertahankan ruang lama');
+// --- sheet LAMA (13 kolom, tanpa initDatabase ulang): baca aman, tulis memigrasi header ---
+{
+  const grid = sheetRows('Pengguna');
+  for (const row of grid) row.length = 13; // simulasi database lama v1.4.0
+  eq(sheetRows('Pengguna')[0].length, 13, 'simulasi: header lama 13 kolom');
+  r = post('getAllData', { token: TOKEN_ADMIN });
+  ok(r.success, 'getAllData jalan di sheet lama 13 kolom');
+  ok(r.data.pengguna.every((p) => p.ruang === '' && p.terakhirLogin === ''), 'baris lama terbaca ruang/terakhirLogin kosong');
+  r = post('login', { username: 'tono', password: 'campur777' });
+  ok(r.success, 'login tetap jalan di sheet lama');
+  eq(sheetRows('Pengguna')[0].slice(13), ['Ruang', 'TerakhirLogin'], 'login memigrasi header ke 15 kolom');
+  r = post('getAllData', { token: TOKEN_ADMIN });
+  ok(!!r.data.pengguna.find((p) => p.username === 'tono').terakhirLogin, 'terakhirLogin tercatat setelah migrasi');
+  r = post('setPasswordMassal', { token: TOKEN_ADMIN, items: [{ id: ID_TONO, password: 'pasca777' }] });
+  eq(r.data.diubah, 1, 'setPasswordMassal jalan setelah migrasi header');
+  r = post('getAllData', { token: TOKEN_ADMIN });
+  ok(r.success, 'token admin tetap valid setelah migrasi');
+}
 
 console.log('\n[8] master Jenjang/Mapel/Kelas — CRUD + tolak hapus bila dipakai');
 r = post('saveJenjang', { token: TOKEN_ADMIN, nama: '' });
@@ -1389,7 +1516,7 @@ ok(r.data.bankSoal.length > 0 && r.data.bankSoal.every((s) =>
 {
   const p1 = r.data.paket.find((p) => p.id === PAKET1);
   ok(Array.isArray(p1.soalIds) && p1.soalIds.length === 3, 'guru -> paket memuat soalIds');
-  eq(Object.keys(r.data.pengguna[0]).sort(), ['aktif', 'id', 'jenjangId', 'kelasId', 'nama', 'nis', 'noHP', 'peran', 'username'], 'field pengguna persis kontrak');
+  eq(Object.keys(r.data.pengguna[0]).sort(), ['aktif', 'id', 'jenjangId', 'kelasId', 'nama', 'nis', 'noHP', 'peran', 'ruang', 'terakhirLogin', 'username'], 'field pengguna persis kontrak (v1.5.0: +ruang, +terakhirLogin)');
 }
 // --- admin ---
 r = post('getAllData', { token: TOKEN_ADMIN });

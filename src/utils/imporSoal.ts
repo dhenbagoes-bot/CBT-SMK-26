@@ -1253,6 +1253,8 @@ export interface ItemSiswaImpor {
   username: string;
   password: string;
   noHP: string;
+  /** Ruang ujian (v1.5.0, opsional). */
+  ruang: string;
 }
 
 export interface BarisSiswaImpor {
@@ -1287,6 +1289,8 @@ export async function parseXlsxSiswa(buffer: ArrayBuffer): Promise<{ baris: Bari
     'no. hp': 'noHP',
     'no wa': 'noHP',
     'no. wa': 'noHP',
+    ruang: 'ruang',
+    'ruang ujian': 'ruang',
   };
   let idxHeader = -1;
   let petaKol: Record<number, keyof Partial<ItemSiswaImpor>> = {};
@@ -1335,16 +1339,17 @@ export async function parseXlsxSiswa(buffer: ArrayBuffer): Promise<{ baris: Bari
       username: (b.item.username || '').trim(),
       password: (b.item.password || '').trim(),
       noHP: (b.item.noHP || '').trim(),
+      ruang: (b.item.ruang || '').trim(),
     })),
   };
 }
 
 /** Template .xlsx impor siswa. */
 export function unduhTemplateXlsxSiswa(): void {
-  const header = ['Nama', 'NIS', 'Kelas', 'Jenjang', 'Username', 'Password', 'NoHP'];
+  const header = ['Nama', 'NIS', 'Kelas', 'Jenjang', 'Username', 'Password', 'NoHP', 'Ruang'];
   const data = [
-    ['Ahmad Fauzi', '12345', '9A', 'SMK', '', '', '081234567890'],
-    ['Siti Aminah', '12346', '9A', 'SMK', '', '', ''],
+    ['Ahmad Fauzi', '12345', '9A', 'SMK', '', '', '081234567890', 'R1'],
+    ['Siti Aminah', '12346', '9A', 'SMK', '', '', '', 'R1'],
   ];
   const caraPakai = [
     ['CARA PAKAI TEMPLATE IMPOR SISWA'],
@@ -1353,8 +1358,9 @@ export function unduhTemplateXlsxSiswa(): void {
     ['3. Jenjang opsional bila nama kelas unik.'],
     ['4. Username & Password opsional: kosong = username NIS, password NIS.'],
     ['5. NoHP = No. WA orang tua (opsional).'],
-    ['6. NIS yang sama dengan data lama akan MEMPERBARUI data tersebut.'],
-    ['7. Simpan, lalu unggah lewat Kelola Data > tab Impor Siswa.'],
+    ['6. Ruang = ruang ujian siswa (opsional, tampil di Data Siswa & kartu peserta).'],
+    ['7. NIS yang sama dengan data lama akan MEMPERBARUI data tersebut.'],
+    ['8. Simpan, lalu unggah lewat Data Siswa > Impor atau Kelola Data > tab Impor Siswa.'],
   ];
   const xlsx = buatXlsx([
     { nama: 'Siswa', data: [header, ...data] },
