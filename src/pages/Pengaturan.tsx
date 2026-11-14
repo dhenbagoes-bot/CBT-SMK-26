@@ -14,8 +14,9 @@ export default function Pengaturan({ pengaturan, toast, refreshData, ...konfigur
   const [unggahLoading, setUnggahLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Pembaruan FUNGSIONAL (v1.3.1): cegah bug yang sama seperti di Paket.tsx.
   const ubah = <K extends keyof PengaturanTipe>(k: K, v: PengaturanTipe[K]) =>
-    setForm({ ...form, [k]: v });
+    setForm((f) => ({ ...f, [k]: v }));
 
   const simpan = async () => {
     const ambang = Number(form.ambangPeringatan);

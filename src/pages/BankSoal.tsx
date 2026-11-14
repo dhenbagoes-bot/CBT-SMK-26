@@ -494,7 +494,8 @@ function FormSoalModal({
   toast,
 }: {
   form: FormSoal;
-  setForm: (f: FormSoal) => void;
+  // Menerima pembaruan fungsional juga (v1.3.1) — sama seperti setter useState.
+  setForm: (f: FormSoal | ((prev: FormSoal) => FormSoal)) => void;
   mapelForm: { id: string; nama: string }[];
   jenjang: { id: string; nama: string }[];
   onTutup: () => void;
@@ -504,7 +505,10 @@ function FormSoalModal({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [unggahLoading, setUnggahLoading] = useState(false);
-  const ubah = (k: keyof FormSoal, v: string | number | string[] | Record<number, number>) => setForm({ ...form, [k]: v });
+  // Pembaruan FUNGSIONAL (v1.3.1): cegah bug yang sama seperti di Paket.tsx —
+  // panggilan ubah() berurutan harus menumpuk, bukan saling menimpa.
+  const ubah = (k: keyof FormSoal, v: string | number | string[] | Record<number, number>) =>
+    setForm((f) => ({ ...f, [k]: v }));
 
   const gantiJenis = (j: JenisSoal) => {
     setForm({

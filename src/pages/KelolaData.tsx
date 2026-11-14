@@ -2,8 +2,10 @@ import { useMemo, useRef, useState } from 'react';
 import { Download, FileUp, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   Badge,
+  BarAksiMassal,
   Button,
   Card,
+  Ceklis,
   ConfirmDialog,
   EmptyState,
   Field,
@@ -14,6 +16,7 @@ import {
   TextInput,
   tdCls,
   thCls,
+  useSeleksi,
 } from '../components/ui';
 import {
   deleteJenjang,
@@ -49,7 +52,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'kelas', label: 'Kelas' },
 ];
 
-export default function KelolaData({ data, toast, refreshData }: PageProps) {
+export default function KelolaData({ data, toast, refreshData, user }: PageProps) {
   const [tab, setTab] = useState<Tab>('pengguna');
   return (
     <div>
@@ -67,7 +70,7 @@ export default function KelolaData({ data, toast, refreshData }: PageProps) {
           </button>
         ))}
       </div>
-      {tab === 'pengguna' && <TabPengguna data={data} toast={toast} refreshData={refreshData} />}
+      {tab === 'pengguna' && <TabPengguna data={data} toast={toast} refreshData={refreshData} user={user} />}
       {tab === 'impor' && <TabImporSiswa toast={toast} refreshData={refreshData} />}
       {tab === 'jenjang' && <TabJenjang data={data} toast={toast} refreshData={refreshData} />}
       {tab === 'mapel' && <TabMapel data={data} toast={toast} refreshData={refreshData} />}
@@ -103,11 +106,13 @@ const FP_KOSONG: FormPengguna = {
   aktif: true,
 };
 
-function TabPengguna({ data, toast, refreshData }: Pick<PageProps, 'data' | 'toast' | 'refreshData'>) {
+function TabPengguna({ data, toast, refreshData, user }: Pick<PageProps, 'data' | 'toast' | 'refreshData' | 'user'>) {
   const [formBuka, setFormBuka] = useState(false);
   const [form, setForm] = useState<FormPengguna>(FP_KOSONG);
   const [loading, setLoading] = useState(false);
   const [hapusId, setHapusId] = useState<string | null>(null);
+  const sel = useSeleksi();
+  const [hapusMassalBuka, setHapusMassalBuka] = useState(false);
   const [resetId, setResetId] = useState<string | null>(null);
   const [pwBaru, setPwBaru] = useState('');
   const [filterPeran, setFilterPeran] = useState('');
@@ -120,7 +125,11 @@ function TabPengguna({ data, toast, refreshData }: Pick<PageProps, 'data' | 'toa
       .filter((p) => !q || p.nama.toLowerCase().includes(q) || p.username.toLowerCase().includes(q));
   }, [data.pengguna, filterPeran, cari]);
 
-  const ubah = <K extends keyof FormPengguna>(k: K, v: FormPengguna[K]) => setForm({ ...form, [k]: v });
+  // Pembaruan FUNGSIONAL (v1.3.1): lihat penjelasan di Paket.tsx — tanpa ini,
+  // dropdown jenjang di form pengguna tampak "tidak bisa diklik" karena
+  // panggilan ubah() berurutan menimpa satu sama lain.
+  const ubah = <K extends keyof FormPengguna>(k: K, v: FormPengguna[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
 
   const bukaTambah = () => {
     setForm(FP_KOSONG);
@@ -179,11 +188,46 @@ function TabPengguna({ data, toast, refreshData }: Pick<PageProps, 'data' | 'toa
     try {
       await deletePengguna(hapusId);
       toast('Pengguna dihapus.', 'sukses');
+      sel.aturBanyak([hapusId], false);
       setHapusId(null);
       await refreshData();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Gagal menghapus.', 'error');
     }
+  };
+
+  /** Hapus massal (v1.3.1): akun sendiri tidak ikut terhapus (pengaman). */
+  const hapusMassal = async () => {
+    setHapusMassalBuka(false);
+    const ids = [...sel.terpilih];
+    let okCount = 0;
+    let lewatiDiri = 0;
+    const gagal: string[] = [];
+    for (const id of ids) {
+      const p = data.pengguna.find((x) => x.id === id);
+      if (p && user && p.username === user.username) {
+        lewatiDiri++;
+        continue;
+      }
+      try {
+        await deletePengguna(id);
+        okCount++;
+      } catch (err) {
+        gagal.push(`${p?.nama || id}: ${err instanceof Error ? err.message : 'gagal'}`);
+      }
+    }
+    sel.kosongkan();
+    await refreshData();
+    toast(
+      `Hapus massal: ${okCount} pengguna dihapus${lewatiDiri ? `, akun sendiri dilewati` : ''}${gagal.length ? `, ${gagal.length} gagal — ${gagal.slice(0, 3).join(' | ')}` : ''}.`,
+      gagal.length ? 'error' : 'sukses',
+    );
+  };
+
+  const ubahTerpilih = () => {
+    const id = [...sel.terpilih][0];
+    const p = data.pengguna.find((x) => x.id === id);
+    if (p) bukaUbah(p);
   };
 
   const doReset = async () => {
@@ -223,11 +267,24 @@ function TabPengguna({ data, toast, refreshData }: Pick<PageProps, 'data' | 'toa
         </Button>
       </div>
 
+      <BarAksiMassal
+        jumlah={sel.terpilih.size}
+        onUbah={ubahTerpilih}
+        onHapus={() => setHapusMassalBuka(true)}
+        onBatal={sel.kosongkan}
+      />
       <Card>
         <TabelResponsif>
           <table className="w-full min-w-[640px]">
             <thead>
               <tr>
+                <th className={thCls}>
+                  <Ceklis
+                    checked={daftar.length > 0 && daftar.every((p) => sel.terpilih.has(p.id))}
+                    onChange={(v) => sel.aturBanyak(daftar.map((p) => p.id), v)}
+                    label="Pilih semua pengguna yang tampil"
+                  />
+                </th>
                 <th className={thCls}>Nama</th>
                 <th className={thCls}>Username</th>
                 <th className={thCls}>Peran</th>
@@ -239,6 +296,9 @@ function TabPengguna({ data, toast, refreshData }: Pick<PageProps, 'data' | 'toa
             <tbody>
               {daftar.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-800">
+                  <td className={tdCls}>
+                    <Ceklis checked={sel.terpilih.has(p.id)} onChange={() => sel.toggle(p.id)} label={`Pilih ${p.nama}`} />
+                  </td>
                   <td className={tdCls}>
                     <p className="font-semibold">{p.nama}</p>
                     {p.nis && <p className="text-xs text-slate-400">NIS {p.nis}</p>}
@@ -339,6 +399,15 @@ function TabPengguna({ data, toast, refreshData }: Pick<PageProps, 'data' | 'toa
 
       {hapusId && (
         <ConfirmDialog judul="Hapus pengguna?" pesan="Akun pengguna akan dihapus permanen." onYa={hapus} onBatal={() => setHapusId(null)} />
+      )}
+
+      {hapusMassalBuka && (
+        <ConfirmDialog
+          judul={`Hapus ${sel.terpilih.size} pengguna?`}
+          pesan="Akun terpilih akan dihapus permanen. Akun yang sedang Anda pakai tidak ikut terhapus."
+          onYa={hapusMassal}
+          onBatal={() => setHapusMassalBuka(false)}
+        />
       )}
 
       {resetId && (
@@ -521,6 +590,8 @@ function MasterTab<T extends { id: string; nama: string }>({
   const [editId, setEditId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [hapusId, setHapusId] = useState<string | null>(null);
+  const sel = useSeleksi();
+  const [hapusMassalBuka, setHapusMassalBuka] = useState(false);
 
   const simpan = async () => {
     if (!nama.trim()) return toast('Nama wajib diisi.', 'error');
@@ -543,11 +614,48 @@ function MasterTab<T extends { id: string; nama: string }>({
     try {
       await onHapus(hapusId);
       toast('Dihapus.', 'sukses');
+      sel.aturBanyak([hapusId], false);
       setHapusId(null);
       await refreshData();
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Gagal menghapus.', 'error');
     }
+  };
+
+  const mulaiEdit = (d: T) => {
+    setEditId(d.id);
+    setNama(d.nama);
+    onMulaiEdit?.(d);
+    window.scrollTo({ top: 0 });
+  };
+
+  /** Hapus massal (v1.3.1): data yang masih dipakai gagal per baris, dilaporkan. */
+  const hapusMassal = async () => {
+    setHapusMassalBuka(false);
+    const ids = [...sel.terpilih];
+    let okCount = 0;
+    const gagal: string[] = [];
+    for (const id of ids) {
+      const d = daftar.find((x) => x.id === id);
+      try {
+        await onHapus(id);
+        okCount++;
+      } catch (err) {
+        gagal.push(`${d?.nama || id}: ${err instanceof Error ? err.message : 'gagal'}`);
+      }
+    }
+    sel.kosongkan();
+    await refreshData();
+    toast(
+      `Hapus massal: ${okCount} ${judul.toLowerCase()} dihapus${gagal.length ? `, ${gagal.length} gagal — ${gagal.slice(0, 3).join(' | ')}` : ''}.`,
+      gagal.length ? 'error' : 'sukses',
+    );
+  };
+
+  const ubahTerpilih = () => {
+    const id = [...sel.terpilih][0];
+    const d = daftar.find((x) => x.id === id);
+    if (d) mulaiEdit(d);
   };
 
   return (
@@ -570,46 +678,72 @@ function MasterTab<T extends { id: string; nama: string }>({
       {daftar.length === 0 ? (
         <EmptyState judul={`Belum ada ${judul.toLowerCase()}`} />
       ) : (
-        <Card>
-          <TabelResponsif>
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th className={thCls}>No</th>
-                  <th className={thCls}>Nama</th>
-                  {kolomTambahan && <th className={thCls}>Info</th>}
-                  <th className={thCls}>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {daftar.map((d, i) => (
-                  <tr key={d.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-800">
-                    <td className={tdCls}>{i + 1}</td>
-                    <td className={tdCls + ' font-semibold'}>{d.nama}</td>
-                    {kolomTambahan && <td className={tdCls}>{kolomTambahan(d)}</td>}
-                    <td className={tdCls}>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => { setEditId(d.id); setNama(d.nama); onMulaiEdit?.(d); window.scrollTo({ top: 0 }); }}
-                          className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
-                          title="Ubah"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => setHapusId(d.id)} className="rounded-lg p-1.5 text-red-600 hover:bg-red-50" title="Hapus">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
+        <>
+          <BarAksiMassal
+            jumlah={sel.terpilih.size}
+            onUbah={ubahTerpilih}
+            onHapus={() => setHapusMassalBuka(true)}
+            onBatal={sel.kosongkan}
+          />
+          <Card>
+            <TabelResponsif>
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className={thCls}>
+                      <Ceklis
+                        checked={daftar.length > 0 && daftar.every((d) => sel.terpilih.has(d.id))}
+                        onChange={(v) => sel.aturBanyak(daftar.map((d) => d.id), v)}
+                        label={`Pilih semua ${judul.toLowerCase()}`}
+                      />
+                    </th>
+                    <th className={thCls}>No</th>
+                    <th className={thCls}>Nama</th>
+                    {kolomTambahan && <th className={thCls}>Info</th>}
+                    <th className={thCls}>Aksi</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </TabelResponsif>
-        </Card>
+                </thead>
+                <tbody>
+                  {daftar.map((d, i) => (
+                    <tr key={d.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-800">
+                      <td className={tdCls}>
+                        <Ceklis checked={sel.terpilih.has(d.id)} onChange={() => sel.toggle(d.id)} label={`Pilih ${d.nama}`} />
+                      </td>
+                      <td className={tdCls}>{i + 1}</td>
+                      <td className={tdCls + ' font-semibold'}>{d.nama}</td>
+                      {kolomTambahan && <td className={tdCls}>{kolomTambahan(d)}</td>}
+                      <td className={tdCls}>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => mulaiEdit(d)}
+                            className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50"
+                            title="Ubah"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => setHapusId(d.id)} className="rounded-lg p-1.5 text-red-600 hover:bg-red-50" title="Hapus">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TabelResponsif>
+          </Card>
+        </>
       )}
       {hapusId && (
         <ConfirmDialog judul={`Hapus ${judul}?`} pesan="Data yang masih dipakai tidak bisa dihapus." onYa={hapus} onBatal={() => setHapusId(null)} />
+      )}
+      {hapusMassalBuka && (
+        <ConfirmDialog
+          judul={`Hapus ${sel.terpilih.size} ${judul.toLowerCase()}?`}
+          pesan="Data terpilih akan dihapus. Data yang masih dipakai akan gagal dihapus dan dilaporkan."
+          onYa={hapusMassal}
+          onBatal={() => setHapusMassalBuka(false)}
+        />
       )}
     </div>
   );

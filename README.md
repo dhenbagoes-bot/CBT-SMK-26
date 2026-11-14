@@ -1,4 +1,4 @@
-# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.3.0
+# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.3.1
 
 Aplikasi ujian digital (CBT) khusus untuk SMK Negeri 1 Juwangi.
 Siswa mengerjakan ujian langsung dari browser (laptop & HP), guru mengelola bank soal &
@@ -98,6 +98,19 @@ kelas/mapel/soal/paket yang memakainya dipindah/dihapus (aplikasi
 menolak menghapus jenjang yang masih dipakai). **Wajib update backend
 + upload frontend** (seperti biasa; tidak perlu `initDatabase` ulang
 atau otorisasi ulang).
+
+**Yang baru di v1.3.1 (perbaikan dropdown + ceklis massal, FRONTEND SAJA —
+backend tidak perlu diupdate, Uji Koneksi tetap 1.3.0):** (1) Perbaikan bug
+yang membuat dropdown Jenjang/Mapel di form Paket Ujian dan dropdown Jenjang
+di form Pengguna tampak "tidak bisa diklik": pembaruan state form memakai
+pola lama sehingga perubahan dropdown tertimpa oleh pengosongan field lain
+dalam handler yang sama. Keempat form (Paket, Kelola Data, Bank Soal,
+Pengaturan) kini memakai pembaruan fungsional. (2) Ceklis di tabel Paket
+Ujian, Pengguna, Jenjang, Mapel, dan Kelas: centang beberapa baris lalu
+Hapus terpilih (yang gagal — mis. data masih dipakai — dilaporkan per
+baris), atau Ubah bila tepat 1 baris terpilih. Akun sendiri tidak ikut
+terhapus pada hapus massal pengguna. **Cukup upload frontend + redeploy
+Vercel** (backend tidak berubah).
 
 **Stack:** React 19 + Vite + TypeScript + Tailwind 4 (frontend, deploy di Vercel) •
 Google Apps Script + Google Sheets + Google Drive (backend, gratis, milik sekolah sendiri).

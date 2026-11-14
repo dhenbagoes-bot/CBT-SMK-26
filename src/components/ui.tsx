@@ -310,6 +310,74 @@ export function TabelResponsif({ children }: { children: ReactNode }) {
   return <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">{children}</div>;
 }
 
+/** Kotak ceklis baris tabel (aksi massal, v1.3.1). */
+export function Ceklis({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+      aria-label={label}
+      className="h-4 w-4 cursor-pointer accent-violet-600"
+    />
+  );
+}
+
+/** State pilihan massal: id terpilih + helper. Dipakai di Paket & Kelola Data (v1.3.1). */
+export function useSeleksi() {
+  const [terpilih, setTerpilih] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setTerpilih((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const aturBanyak = (ids: string[], pilih: boolean) =>
+    setTerpilih((s) => {
+      const n = new Set(s);
+      for (const id of ids) {
+        if (pilih) n.add(id);
+        else n.delete(id);
+      }
+      return n;
+    });
+  const kosongkan = () => setTerpilih(new Set());
+  return { terpilih, toggle, aturBanyak, kosongkan };
+}
+
+/** Bilah aksi untuk baris terpilih — muncul hanya bila ada yang diceklis (v1.3.1).
+ *  Tombol Ubah hanya tampil bila tepat 1 baris terpilih. */
+export function BarAksiMassal({
+  jumlah,
+  onUbah,
+  onHapus,
+  onBatal,
+}: {
+  jumlah: number;
+  onUbah?: () => void;
+  onHapus: () => void;
+  onBatal: () => void;
+}) {
+  if (jumlah === 0) return null;
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 dark:border-violet-900 dark:bg-violet-950">
+      <span className="text-sm font-bold text-violet-700 dark:text-violet-200">{jumlah} dipilih</span>
+      {jumlah === 1 && onUbah && (
+        <Button kecil varian="sekunder" onClick={onUbah}>
+          Ubah
+        </Button>
+      )}
+      <Button kecil varian="bahaya" onClick={onHapus}>
+        Hapus terpilih
+      </Button>
+      <Button kecil varian="sekunder" onClick={onBatal}>
+        Batalkan pilihan
+      </Button>
+    </div>
+  );
+}
+
 export const thCls = 'border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide text-slate-500 whitespace-nowrap dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400';
 export const tdCls = 'border-b border-slate-100 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-800 dark:text-slate-200';
 

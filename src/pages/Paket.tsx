@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   Badge,
+  BarAksiMassal,
   Button,
   Card,
+  Ceklis,
   ConfirmDialog,
   EmptyState,
   Field,
@@ -14,6 +16,7 @@ import {
   TextInput,
   tdCls,
   thCls,
+  useSeleksi,
 } from '../components/ui';
 import { Dices } from 'lucide-react';
 import { deletePaket, saveKelas, savePaket } from '../services/api';
@@ -83,6 +86,8 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
   const [simpanLoading, setSimpanLoading] = useState(false);
   const [hapusId, setHapusId] = useState<string | null>(null);
   const [cariSoal, setCariSoal] = useState('');
+  const sel = useSeleksi();
+  const [hapusMassalBuka, setHapusMassalBuka] = useState(false);
 
   const mapelForm = useMemo(
     () => data.mapel.filter((m) => !form.jenjangId || m.jenjangId === form.jenjangId),
@@ -225,6 +230,7 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
     try {
       await deletePaket(hapusId);
       toast('Paket dihapus.', 'sukses');
+      sel.aturBanyak([hapusId], false);
       setHapusId(null);
       await refreshData();
     } catch (err) {
@@ -232,7 +238,42 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
     }
   };
 
-  const ubah = <K extends keyof FormPaket>(k: K, v: FormPaket[K]) => setForm({ ...form, [k]: v });
+  /** Hapus massal (v1.3.1): hapus satu per satu, laporkan yang gagal per paket. */
+  const hapusMassal = async () => {
+    setHapusMassalBuka(false);
+    const ids = [...sel.terpilih];
+    let okCount = 0;
+    const gagal: string[] = [];
+    for (const id of ids) {
+      const nama = data.paket.find((p) => p.id === id)?.nama || id;
+      try {
+        await deletePaket(id);
+        okCount++;
+      } catch (err) {
+        gagal.push(`${nama}: ${err instanceof Error ? err.message : 'gagal'}`);
+      }
+    }
+    sel.kosongkan();
+    await refreshData();
+    toast(
+      `Hapus massal: ${okCount} paket dihapus${gagal.length ? `, ${gagal.length} gagal — ${gagal.slice(0, 3).join(' | ')}` : ''}.`,
+      gagal.length ? 'error' : 'sukses',
+    );
+  };
+
+  const ubahTerpilih = () => {
+    const id = [...sel.terpilih][0];
+    const p = data.paket.find((x) => x.id === id);
+    if (p) bukaUbah(p);
+  };
+
+  // Pembaruan FUNGSIONAL (v1.3.1): beberapa handler memanggil ubah() berurutan
+  // (mis. ganti jenjang sekaligus mengosongkan mapel/kelas/soal). Dengan
+  // setForm({ ...form }) semua panggilan menyebar state lama yang sama dan
+  // hanya yang terakhir yang berlaku — dropdown jenjang/mapel tampak "tidak
+  // bisa diklik". Dengan updater fungsional, tiap panggilan menumpuk benar.
+  const ubah = <K extends keyof FormPaket>(k: K, v: FormPaket[K]) =>
+    setForm((f) => ({ ...f, [k]: v }));
 
   // Peringatan anti-bentrok (frontend): kelas yang sama, hari & jam tumpang tindih.
   // Backend juga menolak saat simpan — error backend ditampilkan apa adanya.
@@ -265,11 +306,25 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
       {data.paket.length === 0 ? (
         <EmptyState judul="Belum ada paket" subjudul="Buat paket ujian di sini." />
       ) : (
-        <Card>
+        <>
+          <BarAksiMassal
+            jumlah={sel.terpilih.size}
+            onUbah={ubahTerpilih}
+            onHapus={() => setHapusMassalBuka(true)}
+            onBatal={sel.kosongkan}
+          />
+          <Card>
           <TabelResponsif>
             <table className="w-full min-w-[720px]">
               <thead>
                 <tr>
+                  <th className={thCls}>
+                    <Ceklis
+                      checked={data.paket.length > 0 && data.paket.every((p) => sel.terpilih.has(p.id))}
+                      onChange={(v) => sel.aturBanyak(data.paket.map((p) => p.id), v)}
+                      label="Pilih semua paket"
+                    />
+                  </th>
                   <th className={thCls}>Nama</th>
                   <th className={thCls}>Mapel</th>
                   <th className={thCls}>Token</th>
@@ -283,6 +338,9 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
               <tbody>
                 {data.paket.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-800">
+                    <td className={tdCls}>
+                      <Ceklis checked={sel.terpilih.has(p.id)} onChange={() => sel.toggle(p.id)} label={`Pilih ${p.nama}`} />
+                    </td>
                     <td className={tdCls}>
                       <p className="font-semibold text-slate-900 dark:text-slate-100">{p.nama}</p>
                       <p className="text-xs text-slate-400">
@@ -321,7 +379,17 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
               </tbody>
             </table>
           </TabelResponsif>
-        </Card>
+          </Card>
+        </>
+      )}
+
+      {hapusMassalBuka && (
+        <ConfirmDialog
+          judul={`Hapus ${sel.terpilih.size} paket?`}
+          pesan="Paket terpilih akan dihapus. Sesi & hasil yang sudah ada tidak ikut terhapus."
+          onYa={hapusMassal}
+          onBatal={() => setHapusMassalBuka(false)}
+        />
       )}
 
       {formBuka && (
