@@ -308,6 +308,14 @@ export function deleteJenjang(id: string): Promise<unknown> {
   return api('deleteJenjang', { id });
 }
 
+export function saveJenisUjian(item: { id?: string; nama: string }): Promise<{ id: string }> {
+  return api('saveJenisUjian', item);
+}
+
+export function deleteJenisUjian(id: string): Promise<unknown> {
+  return api('deleteJenisUjian', { id });
+}
+
 export function saveMapel(item: { id?: string; jenjangId: string; nama: string }): Promise<{ id: string }> {
   return api('saveMapel', item);
 }
@@ -434,6 +442,8 @@ export interface SavePaketParams {
   /** Token ujian statis (maks. 20 karakter) — field backend: `tokenUjian`
    *  (JANGAN `token` — itu token sesi login). */
   tokenUjian?: string;
+  /** Label jenis ujian (v1.4.0, opsional) — '' = tanpa jenis. */
+  jenisUjianId?: string;
   /** Jeda gelombang antar kelas saat mulai ujian (menit, default 3). */
   jedaGelombang?: number;
 }

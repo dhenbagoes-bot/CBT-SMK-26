@@ -5,7 +5,8 @@
  * Fitur:
  *  - Auth: login username+password (hash SHA-256 + garam), token sesi 7 hari,
  *    peran admin > guru > siswa.
- *  - Master: Jenjang, Mapel, Kelas (CRUD, tolak hapus bila dipakai).
+ *  - Master: Jenjang, Mapel, Kelas, Jenis Ujian (CRUD, tolak hapus bila
+ *    dipakai). Jenis Ujian menjadi label opsional tiap paket (v1.4.0).
  *  - Pengguna: CRUD admin/guru/siswa + reset password + impor siswa massal
  *    (termasuk No. HP/WA orang tua).
  *  - Bank soal: CRUD + impor massal + impor dari Google Form (kuis).
@@ -66,7 +67,7 @@
  *    SEGERA ganti kata sandi setelah inisialisasi!
  */
 
-var APP_VERSION = '1.3.0';
+var APP_VERSION = '1.4.0';
 
 // ============================================================
 // KONFIGURASI SHEET (satu sumber kebenaran untuk nama & header)
@@ -83,10 +84,12 @@ var SHEET_JAWABAN = 'JawabanSiswa';
 var SHEET_HASIL = 'Hasil';
 var SHEET_LOG = 'LogAktivitas';
 var SHEET_NOTIFIKASI = 'Notifikasi';
+var SHEET_JENISUJIAN = 'JenisUjian';
 
 var SEMUA_SHEET = [SHEET_PENGATURAN, SHEET_PENGGUNA, SHEET_JENJANG,
   SHEET_MAPEL, SHEET_KELAS, SHEET_BANKSOAL, SHEET_PAKET, SHEET_SESI,
-  SHEET_JAWABAN, SHEET_HASIL, SHEET_LOG, SHEET_NOTIFIKASI];
+  SHEET_JAWABAN, SHEET_HASIL, SHEET_LOG, SHEET_NOTIFIKASI,
+  SHEET_JENISUJIAN];
 
 var HEADERS = {};
 HEADERS[SHEET_PENGATURAN] = ['Kunci', 'Nilai'];
@@ -103,7 +106,8 @@ HEADERS[SHEET_BANKSOAL] = ['ID', 'JenjangID', 'MapelID', 'Soal', 'OpsiA',
 HEADERS[SHEET_PAKET] = ['ID', 'Nama', 'JenjangID', 'MapelID', 'KelasIDsJSON',
   'ModeSoal', 'SoalIDsJSON', 'JumlahAcak', 'DurasiMenit', 'Mulai', 'Selesai',
   'AcakSoal', 'AcakOpsi', 'TampilSkor', 'TampilPembahasan', 'Aktif',
-  'DibuatPada', 'DibuatOleh', 'Token', 'JedaGelombang'];
+  'DibuatPada', 'DibuatOleh', 'Token', 'JedaGelombang', 'JenisUjianId'];
+HEADERS[SHEET_JENISUJIAN] = ['ID', 'Nama', 'DibuatPada'];
 HEADERS[SHEET_SESI] = ['ID', 'PaketID', 'Username', 'WaktuMulai',
   'WaktuSelesai', 'Status', 'Peringatan', 'SoalIDsJSON', 'DibuatPada'];
 HEADERS[SHEET_HASIL] = ['ID', 'SesiID', 'PaketID', 'Username', 'NamaSiswa',
@@ -476,6 +480,10 @@ function jenjangKeObjek(r) {
   return { id: asString(r[0]), nama: asString(r[1]) };
 }
 
+function jenisUjianKeObjek(r) {
+  return { id: asString(r[0]), nama: asString(r[1]) };
+}
+
 function mapelKeObjek(r) {
   return { id: asString(r[0]), jenjangId: asString(r[1]), nama: asString(r[2]) };
 }
@@ -534,6 +542,8 @@ function paketKeObjek(r, untukSiswa) {
     tampilSkor: asInt(r[13], 1), tampilPembahasan: asInt(r[14], 1),
     aktif: asInt(r[15], 1),
     jedaGelombang: asInt(r[19], 3),
+    // Kolom ke-21 (v1.4.0): baris paket lama (20 kolom) terbaca '' — aman.
+    jenisUjianId: asString(r[20]),
     jumlahSoal: jumlahSoal
   };
   if (!Array.isArray(o.kelasIds)) o.kelasIds = [];
@@ -683,6 +693,14 @@ function doPost(e) {
       case 'deleteJenjang':
         return denganAuth(ss, payload, 'admin', function () {
           return denganKunci(function () { return actionDeleteJenjang(ss, payload); });
+        });
+      case 'saveJenisUjian':
+        return denganAuth(ss, payload, 'admin', function () {
+          return denganKunci(function () { return actionSaveJenisUjian(ss, payload); });
+        });
+      case 'deleteJenisUjian':
+        return denganAuth(ss, payload, 'admin', function () {
+          return denganKunci(function () { return actionDeleteJenisUjian(ss, payload); });
         });
       case 'saveMapel':
         return denganAuth(ss, payload, 'admin', function () {
@@ -880,6 +898,13 @@ function seedJenjang(ss, id, nama) {
   sheet.appendRow([id, nama, sekarangISODateTime()]);
 }
 
+function seedJenisUjian(ss, id, nama) {
+  var sheet = ss.getSheetByName(SHEET_JENISUJIAN);
+  if (findRowNum(sheet, 2, nama) >= 0) return; // sudah ada -> idempotent
+  if (findRowNum(sheet, 1, id) >= 0) return;
+  sheet.appendRow([id, nama, sekarangISODateTime()]);
+}
+
 function seedKelas(ss, id, jenjangId, nama) {
   var sheet = ss.getSheetByName(SHEET_KELAS);
   var rows = readRows(sheet);
@@ -918,6 +943,13 @@ function initializeAllSheets(ss) {
   for (var kk = 0; kk < kelasSeed.length; kk++) {
     seedKelas(ss, 'KLS-' + kelasSeed[kk], 'JJG-SMA', kelasSeed[kk]);
   }
+
+  // Seed jenis ujian bawaan (v1.4.0, hanya jika nama belum ada) — admin
+  // bebas mengubah/menghapusnya di menu Jenis Ujian.
+  seedJenisUjian(ss, 'JNS-PH', 'Ulangan Harian');
+  seedJenisUjian(ss, 'JNS-PTS', 'Penilaian Tengah Semester');
+  seedJenisUjian(ss, 'JNS-PAS', 'Penilaian Akhir Semester');
+  seedJenisUjian(ss, 'JNS-US', 'Ujian Sekolah');
 
   // Seed 2 akun bawaan (hanya jika username belum ada)
   seedAkun(ss, 'USER-ADMIN', 'Administrator', 'admin', 'admin123', 'admin');
@@ -1053,6 +1085,7 @@ function actionGetAllData(ss, user) {
       data: {
         pengaturan: settingsAll,
         jenjang: bacaSemua(ss, SHEET_JENJANG, jenjangKeObjek),
+        jenisUjian: bacaSemua(ss, SHEET_JENISUJIAN, jenisUjianKeObjek),
         mapel: bacaSemua(ss, SHEET_MAPEL, mapelKeObjek),
         kelas: bacaSemua(ss, SHEET_KELAS, kelasKeObjek),
         pengguna: pengguna,
@@ -1103,6 +1136,42 @@ function actionDeleteJenjang(ss, p) {
   }
   sheet.deleteRow(findRowNum(sheet, 1, id));
   return { success: true, message: 'Jenjang berhasil dihapus.' };
+}
+
+// ================= JENIS UJIAN (v1.4.0) =================
+// Master label ujian (Ulangan Harian, PTS, PAS, ...). Dipakai sebagai label
+// opsional tiap paket. Sheet dibuat malas (lazy) agar database lama yang
+// belum menjalankan initDatabase ulang tetap bisa memakai fitur ini.
+function actionSaveJenisUjian(ss, p) {
+  var nama = asString(p.nama);
+  if (!nama) return { success: false, message: 'Nama jenis ujian wajib diisi.' };
+  var sheet = getOrCreateSheet(ss, SHEET_JENISUJIAN);
+  pastikanHeader(sheet, SHEET_JENISUJIAN);
+  var id = asString(p.id);
+  if (id) {
+    var rowNum = findRowNum(sheet, 1, id);
+    if (rowNum < 0) return { success: false, message: 'Jenis ujian tidak ditemukan.' };
+    sheet.getRange(rowNum, 2).setValue(nama);
+    return { success: true, message: 'Jenis ujian berhasil diubah.', data: { id: id } };
+  }
+  var baru = Utilities.getUuid();
+  sheet.appendRow([baru, nama, sekarangISODateTime()]);
+  return { success: true, message: 'Jenis ujian berhasil disimpan.', data: { id: baru } };
+}
+
+function actionDeleteJenisUjian(ss, p) {
+  var id = asString(p.id);
+  if (!id) return { success: false, message: 'ID jenis ujian wajib diisi.' };
+  var sheet = ss.getSheetByName(SHEET_JENISUJIAN);
+  if (!sheet || findRowNum(sheet, 1, id) < 0) {
+    return { success: false, message: 'Jenis ujian tidak ditemukan.' };
+  }
+  // Kolom ke-21 sheet Paket = JenisUjianId.
+  if (hitungPakai(ss.getSheetByName(SHEET_PAKET), 21, id) > 0) {
+    return { success: false, message: 'Jenis ujian tidak dapat dihapus karena masih dipakai di paket.' };
+  }
+  sheet.deleteRow(findRowNum(sheet, 1, id));
+  return { success: true, message: 'Jenis ujian berhasil dihapus.' };
 }
 
 function actionSaveMapel(ss, p) {
@@ -2129,6 +2198,14 @@ function actionSavePaket(ss, user, p) {
     if (findRowNum(ss.getSheetByName(SHEET_MAPEL), 1, mapelId) < 0) {
       return { success: false, message: 'Mapel tidak ditemukan.' };
     }
+    // Jenis ujian (v1.4.0): label opsional. Bila diisi, harus ada di master.
+    var jenisUjianId = asString(p.jenisUjianId);
+    if (jenisUjianId) {
+      var sheetJenis = ss.getSheetByName(SHEET_JENISUJIAN);
+      if (!sheetJenis || findRowNum(sheetJenis, 1, jenisUjianId) < 0) {
+        return { success: false, message: 'Jenis ujian tidak ditemukan.' };
+      }
+    }
     if (MODE_SOAL_VALID.indexOf(modeSoal) < 0) {
       return { success: false, message: 'Mode soal tidak valid (manual/acak).' };
     }
@@ -2229,13 +2306,14 @@ function actionSavePaket(ss, user, p) {
         acakSoal, acakOpsi, tampilSkor, tampilPembahasan, aktif
       ]]);
       sheet.getRange(rowNum, 19, 1, 2).setValues([[token, jedaGelombang]]);
+      sheet.getRange(rowNum, 21).setValue(jenisUjianId);
       return { success: true, message: 'Paket berhasil diubah.', data: { id: id } };
     }
     var baru = Utilities.getUuid();
     sheet.appendRow([baru, nama, jenjangId, mapelId, JSON.stringify(kelasBersih),
       modeSoal, JSON.stringify(soalIds), jumlahAcak, durasiMenit, mulai, selesai,
       acakSoal, acakOpsi, tampilSkor, tampilPembahasan, aktif,
-      sekarangISODateTime(), user.username, token, jedaGelombang]);
+      sekarangISODateTime(), user.username, token, jedaGelombang, jenisUjianId]);
     return { success: true, message: 'Paket berhasil disimpan.', data: { id: baru } };
   } catch (err) {
     return { success: false, error: 'savePaket: ' + err.message };

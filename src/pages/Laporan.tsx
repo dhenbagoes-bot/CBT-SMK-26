@@ -53,7 +53,7 @@ export default function Laporan({ data, pengaturan }: PageProps) {
   return (
     <div>
       <PageHeader
-        judul="Laporan Nilai"
+        judul="Administrasi"
         subjudul="Pratinjau laporan hasil ujian — cetak atau simpan sebagai PDF."
         aksi={
           terurut.length > 0 && (

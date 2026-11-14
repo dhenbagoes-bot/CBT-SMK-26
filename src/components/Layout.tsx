@@ -2,9 +2,16 @@ import { useEffect, useState, type ReactNode } from 'react';
 import {
   BarChart3,
   BookOpen,
+  Briefcase,
   ClipboardList,
+  CreditCard,
   FileText,
+  GraduationCap,
+  HelpCircle,
+  History,
   Home,
+  Info,
+  Library,
   LineChart,
   LogIn,
   LogOut,
@@ -13,9 +20,10 @@ import {
   Moon,
   Package,
   PenLine,
+  School,
   Settings,
   Sun,
-  Users,
+  Tag,
   Wifi,
   WifiOff,
   X,
@@ -56,22 +64,40 @@ export interface NavItem {
   peran?: ('admin' | 'guru' | 'siswa')[];
   /** butuh login (peran apa pun) */
   butuhLogin?: boolean;
+  /** kelompok bagian di sidebar; kosong = tanpa header bagian */
+  bagian?: string;
 }
 
+/** Urutan kelompok bagian di sidebar (v1.4.0). */
+export const URUTAN_BAGIAN = ['DATA MASTER', 'MANAJEMEN UJIAN', 'PELAKSANAAN', 'SISTEM'];
+
 export const SEMUA_NAV: NavItem[] = [
-  { key: 'dashboard', label: 'Dasbor', icon: <Home className="h-5 w-5" /> },
-  { key: 'bank-soal', label: 'Bank Soal', icon: <BookOpen className="h-5 w-5" />, peran: ['admin', 'guru'] },
-  { key: 'paket', label: 'Paket Ujian', icon: <Package className="h-5 w-5" />, peran: ['admin', 'guru'] },
-  { key: 'ujian', label: 'Ujian', icon: <PenLine className="h-5 w-5" />, peran: ['siswa'] },
-  { key: 'monitor', label: 'Monitor', icon: <MonitorPlay className="h-5 w-5" />, peran: ['admin', 'guru'] },
-  { key: 'hasil', label: 'Hasil', icon: <ClipboardList className="h-5 w-5" />, butuhLogin: true },
-  { key: 'analisis-saya', label: 'Analisis Saya', icon: <LineChart className="h-5 w-5" />, peran: ['siswa'] },
-  { key: 'analisis-kelas', label: 'Analisis Kelas', icon: <BarChart3 className="h-5 w-5" />, peran: ['admin', 'guru'] },
-  { key: 'laporan', label: 'Laporan', icon: <FileText className="h-5 w-5" />, peran: ['admin', 'guru'] },
-  { key: 'kelola-data', label: 'Kelola Data', icon: <Users className="h-5 w-5" />, peran: ['admin'] },
-  { key: 'pengaturan', label: 'Pengaturan', icon: <Settings className="h-5 w-5" />, peran: ['admin'] },
+  { key: 'dashboard', label: 'Dashboard', icon: <Home className="h-5 w-5" /> },
+  // DATA MASTER (admin) — deep-link ke tab Kelola Data / halaman Jenis Ujian.
+  { key: 'data-kelas', label: 'Data Kelas', icon: <School className="h-5 w-5" />, peran: ['admin'], bagian: 'DATA MASTER' },
+  { key: 'data-siswa', label: 'Data Siswa', icon: <GraduationCap className="h-5 w-5" />, peran: ['admin'], bagian: 'DATA MASTER' },
+  { key: 'data-guru', label: 'Data Guru', icon: <Briefcase className="h-5 w-5" />, peran: ['admin'], bagian: 'DATA MASTER' },
+  { key: 'mapel', label: 'Mata Pelajaran', icon: <Library className="h-5 w-5" />, peran: ['admin'], bagian: 'DATA MASTER' },
+  { key: 'jenis-ujian', label: 'Jenis Ujian', icon: <Tag className="h-5 w-5" />, peran: ['admin'], bagian: 'DATA MASTER' },
+  // MANAJEMEN UJIAN (admin/guru)
+  { key: 'bank-soal', label: 'Bank Soal', icon: <BookOpen className="h-5 w-5" />, peran: ['admin', 'guru'], bagian: 'MANAJEMEN UJIAN' },
+  { key: 'paket', label: 'Jadwal Ujian', icon: <Package className="h-5 w-5" />, peran: ['admin', 'guru'], bagian: 'MANAJEMEN UJIAN' },
+  { key: 'kartu-peserta', label: 'Cetak Kartu Peserta', icon: <CreditCard className="h-5 w-5" />, peran: ['admin', 'guru'], bagian: 'MANAJEMEN UJIAN' },
+  { key: 'laporan', label: 'Administrasi', icon: <FileText className="h-5 w-5" />, peran: ['admin', 'guru'], bagian: 'MANAJEMEN UJIAN' },
+  // PELAKSANAAN
+  { key: 'ujian', label: 'Ujian', icon: <PenLine className="h-5 w-5" />, peran: ['siswa'], bagian: 'PELAKSANAAN' },
+  { key: 'monitor', label: 'Status Ujian', icon: <MonitorPlay className="h-5 w-5" />, peran: ['admin', 'guru'], bagian: 'PELAKSANAAN' },
+  { key: 'hasil', label: 'Hasil Ujian', icon: <ClipboardList className="h-5 w-5" />, butuhLogin: true, bagian: 'PELAKSANAAN' },
+  { key: 'analisis-saya', label: 'Analisis Saya', icon: <LineChart className="h-5 w-5" />, peran: ['siswa'], bagian: 'PELAKSANAAN' },
+  { key: 'analisis-kelas', label: 'Analisis Soal', icon: <BarChart3 className="h-5 w-5" />, peran: ['admin', 'guru'], bagian: 'PELAKSANAAN' },
+  // SISTEM
+  { key: 'pengaturan', label: 'Pengaturan', icon: <Settings className="h-5 w-5" />, peran: ['admin'], bagian: 'SISTEM' },
+  { key: 'log-pembaruan', label: 'Log Pembaruan', icon: <History className="h-5 w-5" />, bagian: 'SISTEM' },
+  { key: 'petunjuk', label: 'Petunjuk', icon: <HelpCircle className="h-5 w-5" />, bagian: 'SISTEM' },
+  { key: 'tentang', label: 'Tentang', icon: <Info className="h-5 w-5" />, bagian: 'SISTEM' },
   // Sejak v1.2.0 tidak ada lagi menu Konfigurasi: isinya pindah ke dalam
-  // Pengaturan (admin saja). Guru & siswa langsung memakai aplikasi.
+  // Pengaturan (admin saja). Sejak v1.4.0 tidak ada lagi menu Kelola Data:
+  // isinya menjadi menu Data Master di atas (rute lama tetap bisa dibuka).
 ];
 
 /** Item yang tampil sesuai user. */
@@ -133,6 +159,15 @@ export function Layout({
   const toggleTema = () => setTema((t) => (t === 'gelap' ? 'terang' : 'gelap'));
 
   const navTampil = navUntuk(user);
+  // Kelompok sidebar: item tanpa bagian dulu (Dashboard), lalu tiap bagian
+  // yang masih punya item terlihat (v1.4.0). Bagian kosong tidak dirender.
+  const grupNav: { judul: string | null; item: NavItem[] }[] = [];
+  const tanpaBagian = navTampil.filter((n) => !n.bagian);
+  if (tanpaBagian.length > 0) grupNav.push({ judul: null, item: tanpaBagian });
+  for (const b of URUTAN_BAGIAN) {
+    const item = navTampil.filter((n) => n.bagian === b);
+    if (item.length > 0) grupNav.push({ judul: b, item });
+  }
   const kunciUtama = utamaUntuk(user);
   const utama = navTampil.filter((n) => kunciUtama.includes(n.key));
   const lainnya = navTampil.filter((n) => !kunciUtama.includes(n.key));
@@ -234,20 +269,29 @@ export function Layout({
         {/* ===== Sidebar (desktop) ===== */}
         {!modeUjian && (
           <aside className="hidden w-60 shrink-0 md:block">
-            <nav className="sticky top-[76px] space-y-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-              {navTampil.map((n) => (
-                <button
-                  key={n.key}
-                  onClick={() => pindah(n.key)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
-                    page === n.key
-                      ? 'bg-violet-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  {n.icon}
-                  {n.label}
-                </button>
+            <nav className="sticky top-[76px] rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              {grupNav.map((g) => (
+                <div key={g.judul || 'utama'} className="space-y-1">
+                  {g.judul && (
+                    <p className="px-3.5 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 first:pt-1">
+                      {g.judul}
+                    </p>
+                  )}
+                  {g.item.map((n) => (
+                    <button
+                      key={n.key}
+                      onClick={() => pindah(n.key)}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
+                        page === n.key
+                          ? 'bg-violet-600 text-white shadow-sm'
+                          : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      {n.icon}
+                      {n.label}
+                    </button>
+                  ))}
+                </div>
               ))}
             </nav>
           </aside>

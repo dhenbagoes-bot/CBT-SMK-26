@@ -107,7 +107,7 @@ export default function Dashboard({ data, user, pindah }: PageProps) {
   return (
     <div>
       <PageHeader
-        judul={`Dasbor ${peran === 'admin' ? 'Admin' : 'Guru'}`}
+        judul={`Dashboard ${peran === 'admin' ? 'Admin' : 'Guru'}`}
         subjudul={data.pengaturan.namaSekolah || 'CBT Digital'}
       />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

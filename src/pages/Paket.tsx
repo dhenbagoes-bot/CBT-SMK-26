@@ -30,6 +30,8 @@ interface FormPaket {
   nama: string;
   jenjangId: string;
   mapelId: string;
+  /** Label jenis ujian (v1.4.0, opsional) — '' = tanpa jenis. */
+  jenisUjianId: string;
   /** Target kelas diketik MANUAL (nama dipisah koma). Kosong = semua kelas jenjang ini.
    *  Saat simpan, nama dicocokkan ke data Kelas; nama baru dibuat otomatis. */
   kelasManual: string;
@@ -54,6 +56,7 @@ const FORM_KOSONG: FormPaket = {
   nama: '',
   jenjangId: '',
   mapelId: '',
+  jenisUjianId: '',
   kelasManual: '',
   modeSoal: 'manual',
   soalIds: [],
@@ -127,6 +130,7 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
       nama: p.nama,
       jenjangId: p.jenjangId,
       mapelId: p.mapelId,
+      jenisUjianId: p.jenisUjianId || '',
       kelasManual: (p.kelasIds || [])
         .map((id) => data.kelas.find((k) => k.id === id)?.nama || '')
         .filter(Boolean)
@@ -153,7 +157,7 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
     arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id];
 
   const simpan = async () => {
-    if (!form.nama.trim()) return toast('Nama paket wajib diisi.', 'error');
+    if (!form.nama.trim()) return toast('Nama jadwal wajib diisi.', 'error');
     if (!form.jenjangId || !form.mapelId) return toast('Pilih jenjang dan mapel.', 'error');
     if (form.durasiMenit < 5 || form.durasiMenit > 300)
       return toast('Durasi harus 5–300 menit.', 'error');
@@ -200,6 +204,7 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
         nama: rest.nama.trim(),
         jenjangId: rest.jenjangId,
         mapelId: rest.mapelId,
+        jenisUjianId: rest.jenisUjianId || '',
         kelasIds,
         modeSoal: rest.modeSoal,
         soalIds: rest.modeSoal === 'manual' ? rest.soalIds : [],
@@ -215,7 +220,7 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
         tokenUjian: rest.token.trim(),
         jedaGelombang: rest.jedaGelombang,
       });
-      toast('Paket tersimpan.', 'sukses');
+      toast('Jadwal tersimpan.', 'sukses');
       setFormBuka(false);
       await refreshData();
     } catch (err) {
@@ -229,7 +234,7 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
     if (!hapusId) return;
     try {
       await deletePaket(hapusId);
-      toast('Paket dihapus.', 'sukses');
+      toast('Jadwal dihapus.', 'sukses');
       sel.aturBanyak([hapusId], false);
       setHapusId(null);
       await refreshData();
@@ -238,7 +243,7 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
     }
   };
 
-  /** Hapus massal (v1.3.1): hapus satu per satu, laporkan yang gagal per paket. */
+  /** Hapus massal (v1.3.1): hapus satu per satu, laporkan yang gagal per jadwal. */
   const hapusMassal = async () => {
     setHapusMassalBuka(false);
     const ids = [...sel.terpilih];
@@ -256,7 +261,7 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
     sel.kosongkan();
     await refreshData();
     toast(
-      `Hapus massal: ${okCount} paket dihapus${gagal.length ? `, ${gagal.length} gagal — ${gagal.slice(0, 3).join(' | ')}` : ''}.`,
+      `Hapus massal: ${okCount} jadwal dihapus${gagal.length ? `, ${gagal.length} gagal — ${gagal.slice(0, 3).join(' | ')}` : ''}.`,
       gagal.length ? 'error' : 'sukses',
     );
   };
@@ -294,17 +299,17 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
   return (
     <div>
       <PageHeader
-        judul="Paket Ujian"
-        subjudul={`${data.paket.length} paket — tiap ujian memakai token sendiri.`}
+        judul="Jadwal Ujian"
+        subjudul={`${data.paket.length} jadwal — tiap ujian memakai token sendiri.`}
         aksi={
           <Button onClick={bukaTambah}>
-            <Plus className="h-4 w-4" /> Buat Paket
+            <Plus className="h-4 w-4" /> Buat Jadwal
           </Button>
         }
       />
 
       {data.paket.length === 0 ? (
-        <EmptyState judul="Belum ada paket" subjudul="Buat paket ujian di sini." />
+        <EmptyState judul="Belum ada jadwal" subjudul="Buat jadwal ujian di sini." />
       ) : (
         <>
           <BarAksiMassal
@@ -322,7 +327,7 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
                     <Ceklis
                       checked={data.paket.length > 0 && data.paket.every((p) => sel.terpilih.has(p.id))}
                       onChange={(v) => sel.aturBanyak(data.paket.map((p) => p.id), v)}
-                      label="Pilih semua paket"
+                      label="Pilih semua jadwal"
                     />
                   </th>
                   <th className={thCls}>Nama</th>
@@ -347,6 +352,9 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
                         {p.modeSoal === 'manual' ? 'Manual' : `Acak (${p.jumlahAcak})`}
                         {p.acakSoal === 1 ? ' • acak urutan' : ''}
                         {p.acakOpsi === 1 ? ' • acak opsi' : ''}
+                        {p.jenisUjianId
+                          ? ` • ${data.jenisUjian.find((j) => j.id === p.jenisUjianId)?.nama || ''}`
+                          : ''}
                       </p>
                     </td>
                     <td className={tdCls}>{data.mapel.find((m) => m.id === p.mapelId)?.nama || '-'}</td>
@@ -385,17 +393,17 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
 
       {hapusMassalBuka && (
         <ConfirmDialog
-          judul={`Hapus ${sel.terpilih.size} paket?`}
-          pesan="Paket terpilih akan dihapus. Sesi & hasil yang sudah ada tidak ikut terhapus."
+          judul={`Hapus ${sel.terpilih.size} jadwal?`}
+          pesan="Jadwal terpilih akan dihapus. Sesi & hasil yang sudah ada tidak ikut terhapus."
           onYa={hapusMassal}
           onBatal={() => setHapusMassalBuka(false)}
         />
       )}
 
       {formBuka && (
-        <Modal judul={form.id ? 'Ubah Paket' : 'Buat Paket Ujian'} onTutup={() => setFormBuka(false)} lebar="max-w-3xl">
+        <Modal judul={form.id ? 'Ubah Jadwal' : 'Buat Jadwal Ujian'} onTutup={() => setFormBuka(false)} lebar="max-w-3xl">
           <div className="space-y-4">
-            <Field label="Nama paket">
+            <Field label="Nama jadwal">
               <TextInput value={form.nama} onChange={(e) => ubah('nama', e.target.value)} placeholder="cth: PTS 1 — Bahasa Inggris" />
             </Field>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -417,6 +425,18 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
               </Field>
             </div>
 
+            <Field label="Jenis ujian (opsional)">
+              <SelectInput value={form.jenisUjianId} onChange={(e) => ubah('jenisUjianId', e.target.value)}>
+                <option value="">— Tanpa jenis —</option>
+                {data.jenisUjian.map((j) => (
+                  <option key={j.id} value={j.id}>{j.nama}</option>
+                ))}
+              </SelectInput>
+              <p className="mt-1 text-xs text-slate-400">
+                Label ujian ini, mis. Ulangan Harian atau PTS. Daftarnya dikelola di menu Jenis Ujian.
+              </p>
+            </Field>
+
             <Field label="Target kelas (ketik manual)">
               <TextInput
                 value={form.kelasManual}
@@ -425,7 +445,7 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
               />
               <p className="mt-1 text-xs text-slate-400">
                 Ketik nama kelas dipisah koma. Kelas yang belum ada akan dibuat otomatis di jenjang
-                ini saat paket disimpan. Kosongkan bila paket berlaku untuk semua kelas jenjang ini.
+                ini saat jadwal disimpan. Kosongkan bila jadwal berlaku untuk semua kelas jenjang ini.
               </p>
             </Field>
 
@@ -575,7 +595,7 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
 
             <div className="flex justify-end gap-2">
               <Button varian="sekunder" onClick={() => setFormBuka(false)}>Batal</Button>
-              <Button onClick={simpan} loading={simpanLoading}>Simpan Paket</Button>
+              <Button onClick={simpan} loading={simpanLoading}>Simpan Jadwal</Button>
             </div>
           </div>
         </Modal>
@@ -583,8 +603,8 @@ export default function Paket({ data, pengaturan, toast, refreshData }: PageProp
 
       {hapusId && (
         <ConfirmDialog
-          judul="Hapus paket?"
-          pesan="Paket akan dihapus. Sesi & hasil yang sudah ada tidak ikut terhapus."
+          judul="Hapus jadwal?"
+          pesan="Jadwal akan dihapus. Sesi & hasil yang sudah ada tidak ikut terhapus."
           onYa={hapus}
           onBatal={() => setHapusId(null)}
         />

@@ -52,8 +52,15 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'kelas', label: 'Kelas' },
 ];
 
-export default function KelolaData({ data, toast, refreshData, user }: PageProps) {
-  const [tab, setTab] = useState<Tab>('pengguna');
+export default function KelolaData({
+  data,
+  toast,
+  refreshData,
+  user,
+  tabAwal,
+  filterPeranAwal,
+}: PageProps & { tabAwal?: Tab; filterPeranAwal?: string }) {
+  const [tab, setTab] = useState<Tab>(tabAwal || 'pengguna');
   return (
     <div>
       <PageHeader judul="Kelola Data" subjudul="Pengguna, siswa, jenjang, mapel, dan kelas." />
@@ -70,7 +77,7 @@ export default function KelolaData({ data, toast, refreshData, user }: PageProps
           </button>
         ))}
       </div>
-      {tab === 'pengguna' && <TabPengguna data={data} toast={toast} refreshData={refreshData} user={user} />}
+      {tab === 'pengguna' && <TabPengguna data={data} toast={toast} refreshData={refreshData} user={user} filterPeranAwal={filterPeranAwal} />}
       {tab === 'impor' && <TabImporSiswa toast={toast} refreshData={refreshData} />}
       {tab === 'jenjang' && <TabJenjang data={data} toast={toast} refreshData={refreshData} />}
       {tab === 'mapel' && <TabMapel data={data} toast={toast} refreshData={refreshData} />}
@@ -106,7 +113,7 @@ const FP_KOSONG: FormPengguna = {
   aktif: true,
 };
 
-function TabPengguna({ data, toast, refreshData, user }: Pick<PageProps, 'data' | 'toast' | 'refreshData' | 'user'>) {
+function TabPengguna({ data, toast, refreshData, user, filterPeranAwal }: Pick<PageProps, 'data' | 'toast' | 'refreshData' | 'user'> & { filterPeranAwal?: string }) {
   const [formBuka, setFormBuka] = useState(false);
   const [form, setForm] = useState<FormPengguna>(FP_KOSONG);
   const [loading, setLoading] = useState(false);
@@ -115,7 +122,7 @@ function TabPengguna({ data, toast, refreshData, user }: Pick<PageProps, 'data' 
   const [hapusMassalBuka, setHapusMassalBuka] = useState(false);
   const [resetId, setResetId] = useState<string | null>(null);
   const [pwBaru, setPwBaru] = useState('');
-  const [filterPeran, setFilterPeran] = useState('');
+  const [filterPeran, setFilterPeran] = useState(filterPeranAwal || '');
   const [cari, setCari] = useState('');
 
   const daftar = useMemo(() => {
@@ -564,7 +571,8 @@ function TabImporSiswa({ toast, refreshData }: Pick<PageProps, 'toast' | 'refres
 
 // ================= MASTER SEDERHANA =================
 
-function MasterTab<T extends { id: string; nama: string }>({
+/** Tab master generik (nama saja) — dipakai ulang halaman Jenis Ujian (v1.4.0). */
+export function MasterTab<T extends { id: string; nama: string }>({
   judul,
   daftar,
   toast,

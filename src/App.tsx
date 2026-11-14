@@ -12,6 +12,9 @@ import AnalisisSaya from './pages/AnalisisSaya';
 import AnalisisKelas from './pages/AnalisisKelas';
 import Laporan from './pages/Laporan';
 import KelolaData from './pages/KelolaData';
+import JenisUjian from './pages/JenisUjian';
+import KartuPeserta from './pages/KartuPeserta';
+import { LogPembaruan, Petunjuk, Tentang } from './pages/Info';
 import Pengaturan from './pages/Pengaturan';
 import Konfigurasi from './pages/Konfigurasi';
 import Login from './pages/Login';
@@ -54,6 +57,7 @@ function normalisasiData(d: AllData): AllData {
   return {
     pengaturan: { ...PENGATURAN_DEFAULT, ...(d.pengaturan || {}) },
     jenjang: d.jenjang || [],
+    jenisUjian: d.jenisUjian || [],
     mapel: d.mapel || [],
     kelas: d.kelas || [],
     pengguna: d.pengguna || [],
@@ -63,6 +67,7 @@ function normalisasiData(d: AllData): AllData {
       ...p,
       token: p.token || '',
       jedaGelombang: typeof p.jedaGelombang === 'number' ? p.jedaGelombang : 3,
+      jenisUjianId: p.jenisUjianId || '',
     })),
     sesi: d.sesi || [],
     // Backend mengirim status/essayBelumDinilai/nilaiFinal/tuntas;
@@ -77,6 +82,7 @@ function normalisasiData(d: AllData): AllData {
 const DATA_KOSONG: AllData = {
   pengaturan: PENGATURAN_DEFAULT,
   jenjang: [],
+  jenisUjian: [],
   mapel: [],
   kelas: [],
   pengguna: [],
@@ -290,14 +296,15 @@ export default function App() {
   }, []);
 
   // ---- hak akses halaman ----
-  const butuhGuru: PageKey[] = ['bank-soal', 'paket', 'monitor', 'analisis-kelas', 'laporan'];
+  const butuhGuru: PageKey[] = ['bank-soal', 'paket', 'monitor', 'analisis-kelas', 'laporan', 'kartu-peserta'];
+  const halamanAdmin: PageKey[] = ['kelola-data', 'pengaturan', 'konfigurasi', 'data-kelas', 'data-siswa', 'data-guru', 'mapel', 'jenis-ujian'];
   const bolehGuru = !user || user.peran === 'guru' || user.peran === 'admin';
-  const butuhLogin = (page === 'hasil' || page === 'ujian' || page === 'analisis-saya' || butuhGuru.includes(page) || page === 'kelola-data' || page === 'pengaturan') && !user;
+  const butuhLogin = (page === 'hasil' || page === 'ujian' || page === 'analisis-saya' || butuhGuru.includes(page) || halamanAdmin.includes(page)) && !user;
   // Halaman 'konfigurasi' (layar pemulihan) juga hanya untuk admin bila data
   // sudah termuat — guru/siswa tidak pernah diarahkan ke sana. Pengecualian
   // setup awal (backend belum terhubung sama sekali) ditangani cabang render
   // di bawah, di luar penjaga akses ini.
-  const butuhAdmin = (page === 'kelola-data' || page === 'pengaturan' || page === 'konfigurasi') && user?.peran !== 'admin';
+  const butuhAdmin = halamanAdmin.includes(page) && user?.peran !== 'admin';
   const butuhSiswa = page === 'ujian' && user && user.peran !== 'siswa';
   const butuhBukanSiswa = butuhGuru.includes(page) && user && !bolehGuru;
   const aksesDitolak = butuhLogin || butuhAdmin || butuhSiswa || butuhBukanSiswa;
@@ -346,7 +353,27 @@ export default function App() {
       case 'laporan':
         return <Laporan {...props} />;
       case 'kelola-data':
-        return <KelolaData {...props} />;
+        return <KelolaData {...props} key="kelola-data" />;
+      // Menu Data Master (v1.4.0): deep-link ke tab Kelola Data. `key` berbeda
+      // memaksa remount agar tab & filter awal selalu sesuai menu yang diklik.
+      case 'data-kelas':
+        return <KelolaData {...props} key="data-kelas" tabAwal="kelas" />;
+      case 'data-siswa':
+        return <KelolaData {...props} key="data-siswa" tabAwal="pengguna" filterPeranAwal="siswa" />;
+      case 'data-guru':
+        return <KelolaData {...props} key="data-guru" tabAwal="pengguna" filterPeranAwal="guru" />;
+      case 'mapel':
+        return <KelolaData {...props} key="mapel" tabAwal="mapel" />;
+      case 'jenis-ujian':
+        return <JenisUjian {...props} />;
+      case 'kartu-peserta':
+        return <KartuPeserta {...props} />;
+      case 'log-pembaruan':
+        return <LogPembaruan {...props} />;
+      case 'petunjuk':
+        return <Petunjuk {...props} />;
+      case 'tentang':
+        return <Tentang {...props} />;
       case 'pengaturan':
         return (
           <Pengaturan

@@ -1,6 +1,6 @@
 // Smoke test backend Kode.gs (wwn-cbt-madrasah-80 v1.0.0) dengan stub Google Apps Script.
 // Menjalankan Kode.gs ASLI di dalam vm Node dan menguji SEMUA action:
-// initDatabase (12 sheet + seed + idempotent), ping, doGet, lock doPost,
+// initDatabase (13 sheet + seed + idempotent), ping, doGet, lock doPost,
 // login/logout (+case-insensitive, nonaktif, kedaluwarsa), otorisasi peran,
 // getAllData (filter per peran — siswa tak pernah terima kunci),
 // master Jenjang/Mapel/Kelas (+tolak hapus bila dipakai),
@@ -221,15 +221,16 @@ function findGridRow(nama, colIdx, val) {
 const GAMBAR_KECIL = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 const PESAN_SESI = 'Sesi berakhir, silakan login ulang';
 
-console.log('\n[1] initDatabase — 12 sheet + seed + idempotent');
+console.log('\n[1] initDatabase — 13 sheet + seed + idempotent');
 let r = post('initDatabase');
 ok(r.success, 'initDatabase sukses');
-eq(r.data.sheets, ['Pengaturan', 'Pengguna', 'Jenjang', 'Mapel', 'Kelas', 'BankSoal', 'Paket', 'SesiUjian', 'JawabanSiswa', 'Hasil', 'LogAktivitas', 'Notifikasi'], 'data.sheets = 12 nama sheet');
-eq(sheets.size, 12, '12 sheet dibuat');
+eq(r.data.sheets, ['Pengaturan', 'Pengguna', 'Jenjang', 'Mapel', 'Kelas', 'BankSoal', 'Paket', 'SesiUjian', 'JawabanSiswa', 'Hasil', 'LogAktivitas', 'Notifikasi', 'JenisUjian'], 'data.sheets = 13 nama sheet');
+eq(sheets.size, 13, '13 sheet dibuat');
 eq(sheetRows('Pengguna')[0], ['ID', 'Nama', 'Username', 'PasswordHash', 'PasswordSalt', 'Peran', 'NIS', 'JenjangID', 'KelasID', 'Token', 'TokenKedaluwarsa', 'Aktif', 'NoHP'], 'header Pengguna (13 kolom)');
 eq(sheetRows('Notifikasi')[0], ['ID', 'Waktu', 'Username', 'NamaSiswa', 'NoHP', 'Jenis', 'Isi', 'Status'], 'header Notifikasi (8 kolom)');
 eq(sheetRows('BankSoal')[0], ['ID', 'JenjangID', 'MapelID', 'Soal', 'OpsiA', 'OpsiB', 'OpsiC', 'OpsiD', 'OpsiE', 'Kunci', 'Bobot', 'Pembahasan', 'GambarUrl', 'DibuatPada', 'DibuatOleh', 'Jenis', 'OpsiJSON', 'KunciJSON', 'Tingkat', 'KelasID'], 'header BankSoal (20 kolom)');
-eq(sheetRows('Paket')[0], ['ID', 'Nama', 'JenjangID', 'MapelID', 'KelasIDsJSON', 'ModeSoal', 'SoalIDsJSON', 'JumlahAcak', 'DurasiMenit', 'Mulai', 'Selesai', 'AcakSoal', 'AcakOpsi', 'TampilSkor', 'TampilPembahasan', 'Aktif', 'DibuatPada', 'DibuatOleh', 'Token', 'JedaGelombang'], 'header Paket (20 kolom)');
+eq(sheetRows('Paket')[0], ['ID', 'Nama', 'JenjangID', 'MapelID', 'KelasIDsJSON', 'ModeSoal', 'SoalIDsJSON', 'JumlahAcak', 'DurasiMenit', 'Mulai', 'Selesai', 'AcakSoal', 'AcakOpsi', 'TampilSkor', 'TampilPembahasan', 'Aktif', 'DibuatPada', 'DibuatOleh', 'Token', 'JedaGelombang', 'JenisUjianId'], 'header Paket (21 kolom, v1.4.0)');
+eq(sheetRows('JenisUjian')[0], ['ID', 'Nama', 'DibuatPada'], 'header JenisUjian (3 kolom, v1.4.0)');
 eq(sheetRows('SesiUjian')[0], ['ID', 'PaketID', 'Username', 'WaktuMulai', 'WaktuSelesai', 'Status', 'Peringatan', 'SoalIDsJSON', 'DibuatPada'], 'header SesiUjian (9 kolom)');
 eq(sheetRows('Hasil')[0], ['ID', 'SesiID', 'PaketID', 'Username', 'NamaSiswa', 'Kelas', 'JawabanJSON', 'Benar', 'Salah', 'Kosong', 'Skor', 'TotalBobot', 'Nilai', 'WaktuSubmit', 'Status', 'EssayBelumDinilai'], 'header Hasil (16 kolom)');
 eq(sheetRows('JawabanSiswa')[0], ['SesiID', 'SoalID', 'Jawaban', 'SkorSementara', 'UpdatedAt'], 'header JawabanSiswa (5 kolom)');
@@ -241,6 +242,9 @@ eq(sheetRows('LogAktivitas')[0], ['ID', 'Waktu', 'Username', 'SesiID', 'Jenis', 
   ok((get('waTemplateProgres') || '').includes('{nama}') && (get('waTemplateProgres') || '').includes('{mapelLemah}'), 'seed template WA berisi placeholder');
   const jenjang = sheetRows('Jenjang').slice(1).map((x) => x[1]);
   eq(jenjang, ['MA/SMA/SMK'], 'seed 1 jenjang saja (v1.3.0: fokus satu jenjang)');
+  const jenisSeed = sheetRows('JenisUjian').slice(1).map((x) => x[1]);
+  eq(jenisSeed, ['Ulangan Harian', 'Penilaian Tengah Semester', 'Penilaian Akhir Semester', 'Ujian Sekolah'], 'seed 4 jenis ujian (v1.4.0)');
+  eq(sheetRows('JenisUjian').slice(1).map((x) => x[0]), ['JNS-PH', 'JNS-PTS', 'JNS-PAS', 'JNS-US'], 'ID jenis ujian seed deterministik');
   eq(sheetRows('Mapel').length, 1, 'mapel TIDAK di-seed (0 mapel, admin isi manual)');
   const kelasSeed = sheetRows('Kelas').slice(1).map((x) => x[2]);
   eq(kelasSeed, ['7A', '7B', '8A', '8B', '9A', '9B'], 'seed 6 kelas awal');
@@ -258,6 +262,7 @@ eq(sheetRows('LogAktivitas')[0], ['ID', 'Waktu', 'Username', 'SesiID', 'Jenis', 
 post('initDatabase'); // idempotent
 eq(sheetRows('Pengguna').filter((x) => x[2] === 'admin').length, 1, 'akun admin tidak duplikat');
 eq(sheetRows('Jenjang').length, 2, 'jenjang tidak duplikat (header+1)');
+eq(sheetRows('JenisUjian').length, 5, 'jenis ujian tidak duplikat (header+4)');
 // (v1.3.0) Seed aplikasi kini 1 jenjang, tetapi logika multi-jenjang
 // (filter, bentrok jadwal, validasi kelas) tetap diuji: jenjang kedua
 // dibuat langsung di sheet agar fixture di bawah tetap berlaku.
@@ -268,8 +273,8 @@ eq(sheetRows('Pengaturan').filter((x) => x[0] === 'namaSekolah').length, 1, 'kun
 
 console.log('\n[2] ping, doGet, aksi tak dikenal, LockService v1.1.0 (fine-grained)');
 r = post('ping');
-ok(r.success && r.data.version === '1.3.0' && !!r.data.waktu, 'ping -> version + waktu');
-eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.3.0' } }, 'doGet -> info service');
+ok(r.success && r.data.version === '1.4.0' && !!r.data.waktu, 'ping -> version + waktu');
+eq(getRaw(), { success: true, data: { service: 'wwn-cbt-madrasah-80', version: '1.4.0' } }, 'doGet -> info service');
 r = post('aksiTakDikenal');
 ok(!r.success && r.message === 'Aksi tidak dikenal: aksiTakDikenal', 'aksi tak dikenal -> message sesuai kontrak');
 // v1.1.0: kunci global dihapus — aksi BACA tidak boleh menyentuh LockService sama sekali
@@ -320,6 +325,7 @@ const TOKEN_GURU = r.data.token;
 console.log('\n[4] otorisasi — token & peran');
 const aksiSemuaPeran = [
   ['getAllData', {}], ['saveJenjang', { nama: 'X' }], ['deleteJenjang', { id: 'x' }],
+  ['saveJenisUjian', { nama: 'X' }], ['deleteJenisUjian', { id: 'x' }],
   ['saveMapel', { nama: 'X' }], ['saveKelas', { nama: 'X' }],
   ['savePengguna', { nama: 'X' }], ['deletePengguna', { id: 'x' }], ['resetPassword', { id: 'x', passwordBaru: 'y' }],
   ['importSiswa', { rows: [] }], ['saveSoal', {}], ['deleteSoal', { id: 'x' }],
@@ -390,6 +396,8 @@ ok(!r.success && /admin/i.test(r.message), 'siswa panggil aksi admin -> ditolak'
 // Guru memanggil aksi admin -> ditolak
 r = post('saveJenjang', { token: TOKEN_GURU3, nama: 'X' });
 ok(!r.success && r.message === 'Aksi ini hanya boleh dilakukan oleh admin.', 'guru panggil aksi admin -> pesan kontrak');
+r = post('saveJenisUjian', { token: TOKEN_GURU3, nama: 'X' });
+ok(!r.success && r.message === 'Aksi ini hanya boleh dilakukan oleh admin.', 'guru panggil saveJenisUjian -> ditolak (admin)');
 r = post('savePengaturan', { token: TOKEN_GURU3, pengaturan: {} });
 ok(!r.success && /admin/i.test(r.message), 'guru panggil savePengaturan -> ditolak');
 // Guru memanggil aksi admin -> ditolak (master khusus admin per kontrak)
@@ -561,6 +569,35 @@ ok(r.success, 'deleteKelas tak dipakai -> sukses');
 r = post('deleteKelas', { token: TOKEN_ADMIN, id: 'palsu' });
 ok(!r.success, 'deleteKelas id tak dikenal -> error');
 
+console.log('\n[8b] JenisUjian (v1.4.0) — CRUD + sheet malas + getAllData');
+r = post('saveJenisUjian', { token: TOKEN_ADMIN, nama: '' });
+ok(!r.success && /wajib diisi/i.test(r.message), 'saveJenisUjian nama kosong ditolak');
+r = post('saveJenisUjian', { token: TOKEN_ADMIN, nama: 'Try Out' });
+ok(r.success && !!r.data.id, 'saveJenisUjian baru sukses');
+const JNS_BARU = r.data.id;
+r = post('saveJenisUjian', { token: TOKEN_ADMIN, id: JNS_BARU, nama: 'Try Out Semester' });
+ok(r.success, 'update jenis ujian sukses');
+r = post('saveJenisUjian', { token: TOKEN_ADMIN, id: 'palsu', nama: 'X' });
+ok(!r.success && /tidak ditemukan/i.test(r.message), 'update jenis ujian id tak dikenal -> error');
+r = post('getAllData', { token: TOKEN_ADMIN });
+ok(r.success && Array.isArray(r.data.jenisUjian), 'getAllData mengembalikan jenisUjian');
+ok(r.data.jenisUjian.some((j) => j.id === 'JNS-PTS' && j.nama === 'Penilaian Tengah Semester'), 'getAllData memuat seed jenis ujian');
+ok(r.data.jenisUjian.some((j) => j.id === JNS_BARU && j.nama === 'Try Out Semester'), 'getAllData memuat jenis ujian baru');
+r = post('deleteJenisUjian', { token: TOKEN_ADMIN, id: 'palsu' });
+ok(!r.success && /tidak ditemukan/i.test(r.message), 'deleteJenisUjian id tak dikenal -> error');
+r = post('deleteJenisUjian', { token: TOKEN_ADMIN, id: JNS_BARU });
+ok(r.success, 'deleteJenisUjian tak dipakai -> sukses');
+// Sheet hilang (database lama tanpa initDatabase ulang): getAllData tetap
+// jalan (array kosong) dan saveJenisUjian membuat ulang sheet + header.
+sheets.delete('JenisUjian');
+r = post('getAllData', { token: TOKEN_ADMIN });
+ok(r.success && Array.isArray(r.data.jenisUjian) && r.data.jenisUjian.length === 0, 'getAllData tanpa sheet JenisUjian -> array kosong');
+r = post('saveJenisUjian', { token: TOKEN_ADMIN, nama: 'Try Out' });
+ok(r.success && !!r.data.id, 'saveJenisUjian membuat ulang sheet yang hilang');
+const JNS_LAZY = r.data.id;
+eq(sheetRows('JenisUjian')[0], ['ID', 'Nama', 'DibuatPada'], 'sheet JenisUjian dibuat ulang dengan header benar');
+eq(sheetRows('JenisUjian').length, 2, 'sheet JenisUjian dibuat ulang berisi 1 baris');
+
 console.log('\n[9] saveSoal — validasi + CRUD');
 // Mapel TIDAK di-seed (v1.0.0) — dibuat manual via saveMapel
 r = post('saveMapel', { token: TOKEN_ADMIN, jenjangId: 'JJG-SMA', nama: 'Bahasa Indonesia' });
@@ -723,7 +760,7 @@ const fakeForm4 = {
     listItem('List 2 kunci?', [['X', true], ['Y', true], ['Z', false]]),
   ],
 };
-// (v1.3.0) Item petak: getRows/getColumns, tanpa kunci (sesuai FormApp asli).
+// (v1.4.0) Item petak: getRows/getColumns, tanpa kunci (sesuai FormApp asli).
 const gridItem = (title, rows, cols) => ({
   getTitle: () => title,
   getType: () => 'GRID',
@@ -771,7 +808,7 @@ function post2(action, extra = {}) {
 }
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'https://docs.google.com/forms/d/form123/edit', jenjangId: 'JJG-SMA', mapelId: MAPEL_MTS_1 });
 ok(r.success, 'importSoalDariForm via URL sukses');
-eq(r.data.imported, 3, 'imported=3 (2 MC + 1 MC kunci ganda -> pgk, v1.3.0)');
+eq(r.data.imported, 3, 'imported=3 (2 MC + 1 MC kunci ganda -> pgk, v1.4.0)');
 eq(r.data.dilewati.length, 4, 'dilewati=4 (tanpa kunci, text, 6 opsi, 1 opsi)');
 {
   const alasan = r.data.dilewati.map((d) => d.judul + '|' + d.alasan).join(';');
@@ -784,7 +821,7 @@ eq(r.data.dilewati.length, 4, 'dilewati=4 (tanpa kunci, text, 6 opsi, 1 opsi)');
   eq([imp1[9], imp2[9]], ['A', 'D'], 'kunci dari isCorrectAnswer() benar');
   eq([imp1[10], imp2[10]], [1, 1], 'bobot default 1');
   eq([imp1[1], imp1[2]], ['JJG-SMA', MAPEL_MTS_1], 'jenjangId/mapelId tersimpan');
-  eq([imp3[15], imp3[9], imp3[17]], ['pgk', 'A,B', '[0,1]'], 'MC kunci ganda -> pgk (v1.3.0)');
+  eq([imp3[15], imp3[9], imp3[17]], ['pgk', 'A,B', '[0,1]'], 'MC kunci ganda -> pgk (v1.4.0)');
 }
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'form123', jenjangId: 'JJG-SMA', mapelId: MAPEL_MTS_1 });
 ok(r.success, 'ID mentah (tanpa URL) juga bisa');
@@ -808,14 +845,14 @@ eq([r.data.imported, r.data.dilewati.length, r.data.gridTanpaKunci], [4, 4, 1], 
   eq([pgk[15], pgk[9], pgk[17], pgk[16]], ['pgk', 'A,C', '[0,2]', '["A","B","C","D"]'], 'pgk: jenis/kunci/kunciJSON/opsiJSON benar');
   eq([dd[15], dd[9], dd[17]], ['pg', 'B', '"B"'], 'list -> pg dengan kunci benar');
   eq([es[15], es[9], es[17], es[16]], ['essay', '', '""', ''], 'paragraf -> essay tanpa kunci');
-  eq([gr[15], gr[17]], ['grid', '[-1,-1]'], 'petak -> grid tanpa kunci (v1.3.0)');
+  eq([gr[15], gr[17]], ['grid', '[-1,-1]'], 'petak -> grid tanpa kunci (v1.4.0)');
   eq(JSON.parse(gr[16]), { kiri: ['Baris 1', 'Baris 2'], kanan: ['Kolom A', 'Kolom B'] }, 'OpsiJSON grid dari petak Form');
   const alasan = r.data.dilewati.map((d) => d.judul + '|' + d.alasan).join(';');
   ok(/Semua opsi ditandai benar/.test(alasan), 'checkbox semua-benar dilewati');
   ok(/Skala linear tidak didukung/.test(alasan), 'skala dilewati');
   ok(/Soal ke-8\|Bukan soal \(elemen tata letak\)/.test(alasan), 'page break dilewati sebagai tata letak');
 }
-// MC/dropdown berkunci ganda -> pgk (v1.3.0)
+// MC/dropdown berkunci ganda -> pgk (v1.4.0)
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'form999', jenjangId: 'JJG-SMA', mapelId: MAPEL_MTS_1 });
 ok(r.success, 'importSoalDariForm form999 sukses');
 eq([r.data.imported, r.data.dilewati.length], [2, 1], 'form999: imported=2 (2 pgk), dilewati=1 (semua-benar)');
@@ -828,7 +865,7 @@ eq([r.data.imported, r.data.dilewati.length], [2, 1], 'form999: imported=2 (2 pg
   eq([l2[15], l2[9], l2[17]], ['pgk', 'A,B', '[0,1]'], 'list 2 kunci -> pgk');
   ok(r.data.dilewati.some((d) => /Semua opsi ditandai benar/.test(d.alasan)), 'semua-benar tetap dilewati');
 }
-// Petak pilihan ganda -> grid tanpa kunci (v1.3.0)
+// Petak pilihan ganda -> grid tanpa kunci (v1.4.0)
 r = post2('importSoalDariForm', { token: TOKEN_GURU3, formIdOrUrl: 'formGrid', jenjangId: 'JJG-SMA', mapelId: MAPEL_MTS_1 });
 ok(r.success, 'importSoalDariForm formGrid sukses');
 eq([r.data.imported, r.data.dilewati.length, r.data.gridTanpaKunci], [1, 2, 1], 'formGrid: imported=1, dilewati=2, gridTanpaKunci=1');
@@ -903,6 +940,44 @@ r = post('savePaket', { token: TOKEN_GURU3, id: PAKET1, ...PAKET_BAIK, nama: 'Tr
 ok(r.success && r.data.id === PAKET1, 'update paket via id sukses');
 r = post('savePaket', { token: TOKEN_GURU3, id: 'palsu', ...PAKET_BAIK });
 ok(!r.success, 'update paket id tak dikenal -> error');
+// --- jenisUjianId (v1.4.0): validasi, simpan kolom 21, edit, tolak hapus ---
+r = post('savePaket', { token: TOKEN_GURU3, ...PAKET_BAIK, nama: 'Paket Jenis Palsu', jenisUjianId: 'palsu', kelasIds: [KELAS_9A] });
+ok(!r.success && /jenis ujian/i.test(r.message), 'savePaket jenisUjianId palsu ditolak');
+r = post('savePaket', { token: TOKEN_GURU3, ...PAKET_BAIK, nama: 'Paket Try Out', jenisUjianId: JNS_LAZY, kelasIds: [KELAS_9A] });
+ok(r.success && !!r.data.id, 'savePaket dengan jenisUjianId sukses');
+const PAKET_JNS = r.data.id;
+{
+  const baris = sheetRows('Paket').find((x) => x[0] === PAKET_JNS);
+  eq(baris[20], JNS_LAZY, 'jenisUjianId tersimpan di kolom 21 sheet Paket');
+}
+r = post('getAllData', { token: TOKEN_GURU3 });
+{
+  const p = r.data.paket.find((x) => x.id === PAKET_JNS);
+  eq(p.jenisUjianId, JNS_LAZY, 'getAllData paket membawa jenisUjianId');
+}
+r = post('deleteJenisUjian', { token: TOKEN_ADMIN, id: JNS_LAZY });
+ok(!r.success && /dipakai/i.test(r.message), 'deleteJenisUjian dipakai paket -> ditolak');
+r = post('savePaket', { token: TOKEN_GURU3, id: PAKET_JNS, ...PAKET_BAIK, nama: 'Paket Try Out', jenisUjianId: '', kelasIds: [KELAS_9A] });
+ok(r.success, 'edit paket mengosongkan jenisUjianId sukses');
+eq(sheetRows('Paket').find((x) => x[0] === PAKET_JNS)[20], '', 'kolom 21 terhapus saat jenis dikosongkan');
+r = post('deleteJenisUjian', { token: TOKEN_ADMIN, id: JNS_LAZY });
+ok(r.success, 'deleteJenisUjian setelah tidak dipakai -> sukses');
+r = post('deletePaket', { token: TOKEN_GURU3, id: PAKET_JNS });
+ok(r.success, 'paket uji jenis ujian dihapus (bersih-bersih)');
+// --- Kompatibel mundur: baris paket LAMA (20 kolom, tanpa JenisUjianId) ---
+{
+  const grid = sheets.get('Paket').getSheetValues();
+  grid.push(['PAKET-LAMA-20', 'Paket Lama', 'JJG-SMA', MAPEL_MTS_1, '[]', 'manual',
+    JSON.stringify([SOAL1]), 0, 60, '2025-01-01 08:00:00', '2025-01-01 09:00:00',
+    1, 1, 1, 1, 1, '2025-01-01 00:00:00', 'admin', '', 3]);
+}
+r = post('getAllData', { token: TOKEN_GURU3 });
+{
+  const p = r.data.paket.find((x) => x.id === 'PAKET-LAMA-20');
+  ok(!!p && p.jenisUjianId === '' && p.jumlahSoal === 1, 'baris paket 20 kolom terbaca, jenisUjianId kosong');
+}
+r = post('deletePaket', { token: TOKEN_GURU3, id: 'PAKET-LAMA-20' });
+ok(r.success, 'baris paket lama dihapus (bersih-bersih)');
 // deleteSoal dipakai paket manual -> ditolak; paket sekali pakai untuk uji hapus
 r = post('savePaket', { token: TOKEN_GURU3, ...PAKET_BAIK, nama: 'Paket Hapus', soalIds: [SOAL5], kelasIds: [KELAS_9A] });
 const PAKET_DEL = r.data.id;
@@ -1319,7 +1394,7 @@ ok(r.data.bankSoal.length > 0 && r.data.bankSoal.every((s) =>
 // --- admin ---
 r = post('getAllData', { token: TOKEN_ADMIN });
 ok(r.data.pengguna.some((u) => u.peran === 'admin'), 'admin -> lihat semua pengguna termasuk admin');
-eq(r.data.jenjang.length, 2, 'jenjang 2 (1 seed v1.3.0 + 1 tambahan uji; RA sudah dihapus)');
+eq(r.data.jenjang.length, 2, 'jenjang 2 (1 seed v1.4.0 + 1 tambahan uji; RA sudah dihapus)');
 ok(r.data.mapel.length >= 2 && r.data.kelas.length >= 6, 'mapel (dibuat manual) & kelas (6 seed + tambahan) terbaca');
 {
   const json = JSON.stringify(r.data);
@@ -1533,7 +1608,7 @@ r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMA', mapelId: MAPEL_
 ok(!r.success && /sama dengan jumlah/i.test(r.message), 'jodoh kunci != jml kiri ditolak');
 r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMA', mapelId: MAPEL_MTS_1, jenis: 'jodoh', soal: 'x', pasanganKiri: ['a', 'b'], pasanganKanan: ['x', 'y'], kunci: [0, 5] });
 ok(!r.success && /jangkauan/i.test(r.message), 'jodoh kunci di luar jangkauan ditolak');
-// --- grid (v1.3.0): 3 baris x 2 kolom, kunci per baris ---
+// --- grid (v1.4.0): 3 baris x 2 kolom, kunci per baris ---
 r = post('saveSoal', { token: TOKEN_GURU3, jenjangId: 'JJG-SMA', mapelId: MAPEL_MTS_1, jenis: 'grid', soal: 'Tentukan benar/salah pernyataan berikut.', pasanganKiri: ['a', 'b', 'c'], pasanganKanan: ['Benar', 'Salah'], kunci: [0, 1, 0], bobot: 3 });
 ok(r.success && !!r.data.id, 'saveSoal grid sukses (jumlah baris != kolom)');
 SOAL6.grid = r.data.id;
@@ -1644,7 +1719,7 @@ eq(r.data.jawaban, [], 'sesi baru -> jawaban kosong');
   eq(isian.opsi, [], 'soal isian klien: opsi kosong');
   ok(!/kunci|pembahasan/i.test(JSON.stringify(r.data.soal)), 'TIDAK ADA kunci/pembahasan di soal klien');
 }
-// --- grid di ruang ujian (v1.3.0): paket khusus grid, mulaiSesi kirim matriks ---
+// --- grid di ruang ujian (v1.4.0): paket khusus grid, mulaiSesi kirim matriks ---
 // (Kelas 9B belum dipakai paket lain, agar tidak bentrok dengan PAKET6/PAKET2.)
 r = post('savePengguna', { token: TOKEN_ADMIN, nama: 'Gita', username: 'gita', peran: 'siswa', nis: '1009', jenjangId: 'JJG-SMA', kelasId: 'KLS-9B' });
 ok(r.success, 'savePengguna siswa 9B untuk uji grid sukses');

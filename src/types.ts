@@ -55,6 +55,12 @@ export interface Kelas {
   nama: string;
 }
 
+/** Jenis ujian (v1.4.0): label master — Ulangan Harian, PTS, PAS, dst. */
+export interface JenisUjian {
+  id: string;
+  nama: string;
+}
+
 export interface Pengguna {
   id: string;
   nama: string;
@@ -179,6 +185,8 @@ export interface Paket {
   token: string;
   /** Jeda gelombang antar kelas saat mulai ujian (menit, default 3). */
   jedaGelombang: number;
+  /** Label jenis ujian (v1.4.0, opsional) — '' bila tanpa jenis. */
+  jenisUjianId: string;
 }
 
 export type StatusSesi = 'AKTIF' | 'SELESAI' | 'BATAL';
@@ -229,6 +237,7 @@ export interface HasilUjian {
 export interface AllData {
   pengaturan: Pengaturan;
   jenjang: Jenjang[];
+  jenisUjian: JenisUjian[];
   mapel: Mapel[];
   kelas: Kelas[];
   pengguna: Pengguna[];
@@ -274,7 +283,18 @@ export type PageKey =
   | 'kelola-data'
   | 'pengaturan'
   | 'konfigurasi'
-  | 'login';
+  | 'login'
+  // Menu Data Master (v1.4.0) — deep-link ke tab Kelola Data:
+  | 'data-kelas'
+  | 'data-siswa'
+  | 'data-guru'
+  | 'mapel'
+  | 'jenis-ujian'
+  // Menu baru (v1.4.0):
+  | 'kartu-peserta'
+  | 'log-pembaruan'
+  | 'petunjuk'
+  | 'tentang';
 
 // ---------- Ruang ujian ----------
 

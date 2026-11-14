@@ -1,7 +1,7 @@
 # Kontrak API — Backend wwn-cbt-madrasah-80 (CBT Digital — SMK Negeri 1 Juwangi)
 
 Backend: Google Apps Script + Google Sheets + Google Drive.
-Versi: `1.3.0` (`APP_VERSION` di `backend/Kode.gs`).
+Versi: `1.4.0` (`APP_VERSION` di `backend/Kode.gs`).
 Fork dari wwn-cbt-atm-80 v1.1.4 — yang baru di v1.0.0: sheet `JawabanSiswa`,
 6 jenis soal, token ujian statis, autosave + resume, penilaian essay manual,
 anti-bentrok jadwal, `durasiStandar` & `jedaGelombang` di Pengaturan.
@@ -18,7 +18,7 @@ ke URL `/exec` Web App. Respons SELALU memakai envelope:
 `doGet` (GET biasa, tanpa parameter) hanya mengembalikan info service:
 
 ```json
-{ "success": true, "data": { "service": "wwn-cbt-madrasah-80", "version": "1.3.0" } }
+{ "success": true, "data": { "service": "wwn-cbt-madrasah-80", "version": "1.4.0" } }
 ```
 
 **Pengecualian beacon**: `batalkanSesi` juga dipanggil via
@@ -63,11 +63,12 @@ ke URL `/exec` Web App. Respons SELALU memakai envelope:
 | Mapel | ID, JenjangID, Nama, DibuatPada |
 | Kelas | ID, JenjangID, Nama, DibuatPada |
 | BankSoal | ID, JenjangID, MapelID, Soal, OpsiA, OpsiB, OpsiC, OpsiD, OpsiE, Kunci, Bobot, Pembahasan, GambarUrl, DibuatPada, DibuatOleh, Jenis, OpsiJSON, KunciJSON, Tingkat, KelasID |
-| Paket | ID, Nama, JenjangID, MapelID, KelasIDsJSON, ModeSoal, SoalIDsJSON, JumlahAcak, DurasiMenit, Mulai, Selesai, AcakSoal, AcakOpsi, TampilSkor, TampilPembahasan, Aktif, DibuatPada, DibuatOleh, Token, JedaGelombang |
+| Paket | ID, Nama, JenjangID, MapelID, KelasIDsJSON, ModeSoal, SoalIDsJSON, JumlahAcak, DurasiMenit, Mulai, Selesai, AcakSoal, AcakOpsi, TampilSkor, TampilPembahasan, Aktif, DibuatPada, DibuatOleh, Token, JedaGelombang, JenisUjianId |
 | SesiUjian | ID, PaketID, Username, WaktuMulai, WaktuSelesai, Status, Peringatan, SoalIDsJSON, DibuatPada |
 | JawabanSiswa | SesiID, SoalID, Jawaban, SkorSementara, UpdatedAt |
 | Hasil | ID, SesiID, PaketID, Username, NamaSiswa, Kelas, JawabanJSON, Benar, Salah, Kosong, Skor, TotalBobot, Nilai, WaktuSubmit, Status, EssayBelumDinilai |
 | LogAktivitas | ID, Waktu, Username, SesiID, Jenis, Detail |
+| JenisUjian | ID, Nama, DibuatPada |
 | Notifikasi | ID, Waktu, Username, NamaSiswa, NoHP, Jenis, Isi, Status |
 
 - `Status` SesiUjian: `AKTIF` | `SELESAI` | `BATAL`.
@@ -147,7 +148,7 @@ Status hasil vs KKM (default 75, dari Pengaturan):
 ## Daftar action
 
 ### `ping` (publik)
-→ `{ success:true, data:{ version:"1.3.0", waktu:"yyyy-MM-dd HH:mm:ss" } }`
+→ `{ success:true, data:{ version:"1.4.0", waktu:"yyyy-MM-dd HH:mm:ss" } }`
 
 ### `login` (publik) `{ username, password }`
 Username case-insensitive; tolak jika `Aktif != 1`.
@@ -193,7 +194,10 @@ Mapel/Kelas/BankSoal/Paket),
 SEKALI, baris baru SATU `setValues`; duplikat (jenjang+nama, abaikan huruf/spasi)
 dilewati → `{ imported, dilewati, errors:[{ baris, pesan }] }` (idempotent),
 `saveKelas { id?, jenjangId, nama }`, `deleteKelas { id }` (tolak jika dipakai
-Pengguna/Paket).
+Pengguna/Paket),
+`saveJenisUjian { id?, nama }`, `deleteJenisUjian { id }` (v1.4.0; tolak jika
+dipakai Paket — kolom `JenisUjianId`). Sheet dibuat malas bila belum ada, agar
+database lama tidak wajib menjalankan `initDatabase` ulang.
 - `saveKelas` menolak nama kelas yang **sudah ada pada jenjang yang sama**
   (case-insensitive) — mencegah duplikat seed vs buat baru.
 → simpan: `{ success:true, data:{ id } }` · hapus: `{ success:true }`
@@ -280,7 +284,9 @@ Pengguna/Paket).
 → `{ success:true, data:{ imported, dilewati:[{ judul, alasan }], gridTanpaKunci } }`
 
 ### Paket — 🔒 guru (guru atau admin)
-`savePaket { id?, nama, jenjangId, mapelId, kelasIds?, modeSoal, soalIds?, jumlahAcak?, durasiMenit, mulai, selesai, acakSoal?, acakOpsi?, tampilSkor?, tampilPembahasan?, aktif?, tokenUjian?, jedaGelombang? }`
+`savePaket { id?, nama, jenjangId, mapelId, kelasIds?, modeSoal, soalIds?, jumlahAcak?, durasiMenit, mulai, selesai, acakSoal?, acakOpsi?, tampilSkor?, tampilPembahasan?, aktif?, tokenUjian?, jedaGelombang?, jenisUjianId? }`
+- `jenisUjianId` (v1.4.0, opsional): bila diisi harus ada di sheet `JenisUjian`;
+  kosong = tanpa jenis. Baris Paket lama (20 kolom) terbaca `jenisUjianId=''`.
 - `nama`, `jenjangId`, `mapelId`, `durasiMenit` (5–300), `mulai`, `selesai` wajib;
   `selesai > mulai` (format `yyyy-MM-dd HH:mm:ss`).
 - `modeSoal='manual'` → `soalIds` array ≥ 1 & semua ada di BankSoal.

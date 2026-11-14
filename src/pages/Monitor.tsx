@@ -93,7 +93,7 @@ export default function Monitor({ data, toast }: PageProps) {
   return (
     <div>
       <PageHeader
-        judul="Monitor Sesi"
+        judul="Status Ujian"
         subjudul={`${aktif} sesi aktif • ringkasan per kelas • diperbarui otomatis tiap 30 detik.`}
         aksi={
           <>

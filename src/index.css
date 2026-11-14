@@ -75,6 +75,34 @@
   }
 }
 
+/* ===== Print: kartu peserta (#area-kartu) ===== */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #area-kartu,
+  #area-kartu * {
+    visibility: visible;
+  }
+  #area-kartu {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 12px;
+    background: #fff;
+    color: #000;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+  }
+  #area-kartu .kartu-peserta {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
 /* ===== Print: area laporan nilai (#area-cetak) ===== */
 @media print {
   body * {

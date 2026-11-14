@@ -1,4 +1,4 @@
-# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.3.1
+# CBT Digital — SMK Negeri 1 Juwangi (`wwn-cbt-madrasah-80`) v1.4.0
 
 Aplikasi ujian digital (CBT) khusus untuk SMK Negeri 1 Juwangi.
 Siswa mengerjakan ujian langsung dari browser (laptop & HP), guru mengelola bank soal &
@@ -99,6 +99,21 @@ menolak menghapus jenjang yang masih dipakai). **Wajib update backend
 + upload frontend** (seperti biasa; tidak perlu `initDatabase` ulang
 atau otorisasi ulang).
 
+**Yang baru di v1.4.0 (menu baru + Jenis Ujian + Cetak Kartu Peserta — BACKEND
+DAN FRONTEND, update backend via New Version; TIDAK perlu initDatabase ulang):**
+(1) Menu disusun ulang berkelompok seperti referensi: **Data Master** (Data
+Kelas, Data Siswa, Data Guru, Mata Pelajaran, Jenis Ujian), **Manajemen Ujian**
+(Bank Soal, Jadwal Ujian, Cetak Kartu Peserta, Administrasi), **Pelaksanaan**
+(Status Ujian, Hasil Ujian, Analisis Soal), dan **Sistem** (Pengaturan, Log
+Pembaruan, Petunjuk, Tentang). Menu lama "Kelola Data" melebur menjadi menu
+Data Master; rute lamanya tetap bisa dibuka. (2) **Jenis Ujian**: master baru
+(sheet `JenisUjian`, seed: Ulangan Harian, PTS, PAS, Ujian Sekolah) yang
+menjadi label opsional tiap jadwal — tersimpan di kolom baru sheet `Paket`;
+jadwal lama (tanpa kolom itu) tetap terbaca normal. (3) **Cetak Kartu Peserta**:
+kartu ujian per siswa berisi jadwal + token, siap cetak. (4) Halaman baru Log
+Pembaruan, Petunjuk, dan Tentang. Siswa tetap memakai menu Ujian, Hasil Ujian,
+dan Analisis Saya seperti sebelumnya.
+
 **Yang baru di v1.3.1 (perbaikan dropdown + ceklis massal, FRONTEND SAJA —
 backend tidak perlu diupdate, Uji Koneksi tetap 1.3.0):** (1) Perbaikan bug
 yang membuat dropdown Jenjang/Mapel di form Paket Ujian dan dropdown Jenjang
@@ -147,9 +162,9 @@ Google Apps Script + Google Sheets + Google Drive (backend, gratis, milik sekola
 
 ## A. Siapkan Backend (sekali saja)
 
-Backend dibangun dari kontrak `docs/API_CONTRACT.md` (12 sheet: Pengaturan, Pengguna,
+Backend dibangun dari kontrak `docs/API_CONTRACT.md` (13 sheet: Pengaturan, Pengguna,
 Jenjang, Mapel, Kelas, BankSoal, Paket, SesiUjian, JawabanSiswa, Hasil,
-LogAktivitas, Notifikasi).
+LogAktivitas, Notifikasi, JenisUjian).
 > **Catatan:** tidak ada sheet `SoalUjian` — soal tiap sesi disimpan sebagai
 > snapshot `SoalIDsJSON` di sheet `SesiUjian` (urutan soal per siswa).
 File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti kontrak tersebut.
@@ -177,7 +192,7 @@ File `backend/Kode.gs` + `backend/appsscript.json` disiapkan terpisah mengikuti 
    (Bila sudah terhubung, konfigurasi ada di **Pengaturan → Konfigurasi Backend**,
    khusus admin.)
 2. Tempel URL `/exec` ke kolom *URL Backend Manual* → **Simpan URL**.
-3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.3.0 ...`.
+3. Klik **Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.4.0 ...`.
 4. Klik **Inisialisasi Database** — membuat 12 sheet + akun bawaan
    `admin`/`admin123` dan `guru`/`guru123`, jenjang SMK/SMA/MA,
    6 kelas seed (7A, 7B, 8A, 8B, 9A, 9B),
@@ -225,7 +240,7 @@ Data di spreadsheet tidak ikut berubah — **jangan** jalankan
 3. Klik **Deploy → Manage deployments** → klik ikon pensil ✏️ pada deployment
    yang aktif → **Version: New version** → **Deploy**.
 4. Verifikasi: buka aplikasi → login admin → **Pengaturan → Konfigurasi
-   Backend → Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.3.0 ...`.
+   Backend → Uji Koneksi** — harus muncul `Terhubung ✓ — versi 1.4.0 ...`.
    Bila masih tertulis versi lama, tunggu 1–2 menit lalu uji lagi (cache
    deployment Google kadang lambat berubah).
 

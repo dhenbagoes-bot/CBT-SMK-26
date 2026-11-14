@@ -58,7 +58,7 @@ export default function AnalisisKelas({ data, pengaturan, toast }: PageProps) {
   return (
     <div>
       <PageHeader
-        judul="Analisis Kelas"
+        judul="Analisis Soal"
         subjudul="Statistik nilai, distribusi, peringkat siswa, dan analisis butir soal."
       />
 
